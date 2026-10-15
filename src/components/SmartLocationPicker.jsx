@@ -5,6 +5,7 @@ import {
   Marker,
   useMap,
   useMapEvents,
+  LayersControl,
 } from 'react-leaflet';
 import L from 'leaflet';
 import {
@@ -309,11 +310,23 @@ export default function SmartLocationPicker({
           className="w-full h-full z-0 cursor-crosshair"
           attributionControl={false}
         >
-          <TileLayer
-            attribution="&copy; OpenStreetMap contributors"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            maxZoom={19}
-          />
+          <LayersControl position="topright">
+            <LayersControl.BaseLayer checked name="🛰️ Satellite View">
+              <TileLayer
+                attribution="&copy; Esri"
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                maxZoom={19}
+              />
+            </LayersControl.BaseLayer>
+
+            <LayersControl.BaseLayer name="🗺️ Street View">
+              <TileLayer
+                attribution="&copy; OpenStreetMap contributors"
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                maxZoom={19}
+              />
+            </LayersControl.BaseLayer>
+          </LayersControl>
 
           {/* Draggable Marker */}
           <Marker
