@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, MapPin, ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import { uploadImages } from '../lib/uploadImage';
 import { getProfile } from '../lib/auth';
+import SmartLocationPicker from './SmartLocationPicker';
 
 const CATEGORIES = [
   { key: 'real_estate', label: 'Real Estate', icon: '🏠' },
@@ -62,8 +63,8 @@ export default function AddListingModal({
   const [price, setPrice] = useState('');
   const [priceTag, setPriceTag] = useState('');
   const [locationName, setLocationName] = useState('');
-  const [lat, setLat] = useState('');
-  const [lng, setLng] = useState('');
+  const [lat, setLat] = useState(6.9271);
+  const [lng, setLng] = useState(79.8612);
   const [phone, setPhone] = useState('');
   const [sellerType, setSellerType] = useState('owner');
   const [description, setDescription] = useState('');
@@ -194,7 +195,9 @@ export default function AddListingModal({
       setYear('');
       setMileage('');
       setModel('');
-      setDescription('');
+      setLocationName('');
+      setLat(6.9271);
+      setLng(79.8612);
       setImageFiles([]);
       setImagePreviews([]);
       onClose();
@@ -517,52 +520,42 @@ export default function AddListingModal({
               />
             </div>
 
-            {/* Location & Map Picker */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Location Name
-              </label>
-              <input
-                type="text"
-                value={locationName}
-                onChange={(e) => setLocationName(e.target.value)}
-                placeholder="e.g. Cinnamon Gardens, Colombo 07"
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-medium text-gray-700">
-                  Map Coordinates *
+            {/* Smart Location & Mini-Map Picker */}
+            <div className="space-y-2">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Location Name
                 </label>
-                <button
-                  type="button"
-                  onClick={handlePickMap}
-                  className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700"
-                >
-                  <MapPin size={14} />
-                  Pick on Map
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
                 <input
-                  type="number"
-                  step="any"
-                  required
-                  value={lat}
-                  onChange={(e) => setLat(e.target.value)}
-                  placeholder="Latitude"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  type="text"
+                  value={locationName}
+                  onChange={(e) => setLocationName(e.target.value)}
+                  placeholder="e.g. Cinnamon Gardens, Colombo 07"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
-                <input
-                  type="number"
-                  step="any"
-                  required
-                  value={lng}
-                  onChange={(e) => setLng(e.target.value)}
-                  placeholder="Longitude"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-gray-700">
+                    Pin Location on Map *
+                  </label>
+                  <span className="text-[11px] text-gray-400">
+                    Drag the pin or search your city
+                  </span>
+                </div>
+
+                <SmartLocationPicker
+                  lat={lat}
+                  lng={lng}
+                  onLocationChange={(newLat, newLng) => {
+                    setLat(newLat);
+                    setLng(newLng);
+                  }}
+                  locationName={locationName}
+                  onLocationNameChange={(newName) => {
+                    setLocationName(newName);
+                  }}
                 />
               </div>
             </div>
