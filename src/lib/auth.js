@@ -188,6 +188,9 @@ export async function getProfile(userId) {
           phone: data.phone || '',
           userType: data.user_type || data.userType || 'owner',
           company: data.company || '',
+          bio: data.bio || '',
+          avatar_url: data.avatar_url || data.avatarUrl || '',
+          avatarUrl: data.avatar_url || data.avatarUrl || '',
           is_admin: Boolean(data.is_admin || data.isAdmin),
           is_verified: Boolean(data.is_verified || data.isVerified),
         };
@@ -196,7 +199,7 @@ export async function getProfile(userId) {
         const { data: userData } = await supabase.auth.getUser();
         if (userData?.user && (userData.user.id === userId || userData.user.uid === userId)) {
           const meta = userData.user.user_metadata || {};
-          if (meta.full_name || meta.phone || meta.is_admin) {
+          if (meta.full_name || meta.phone || meta.is_admin || meta.bio || meta.avatar_url) {
             return {
               id: userData.user.id,
               uid: userData.user.id,
@@ -206,6 +209,9 @@ export async function getProfile(userId) {
               phone: meta.phone || '',
               userType: meta.user_type || 'owner',
               company: '',
+              bio: meta.bio || '',
+              avatar_url: meta.avatar_url || meta.avatarUrl || '',
+              avatarUrl: meta.avatar_url || meta.avatarUrl || '',
               is_admin: Boolean(meta.is_admin || meta.isAdmin),
               is_verified: Boolean(meta.is_verified || meta.isVerified),
             };
@@ -233,6 +239,9 @@ export async function saveProfile(userId, data) {
       if (data.phone !== undefined) updatePayload.phone = data.phone;
       if (data.company !== undefined) updatePayload.company = data.company;
       if (data.userType !== undefined) updatePayload.user_type = data.userType;
+      if (data.bio !== undefined) updatePayload.bio = data.bio;
+      if (data.avatar_url !== undefined) updatePayload.avatar_url = data.avatar_url;
+      if (data.avatarUrl !== undefined) updatePayload.avatar_url = data.avatarUrl;
 
       await supabase
         .from('profiles')
@@ -255,6 +264,9 @@ export async function createUserProfile(userId, profileData) {
     full_name: profileData.name || profileData.full_name || '',
     phone: profileData.phone || '',
     userType: profileData.userType || 'owner',
+    bio: profileData.bio || '',
+    avatar_url: profileData.avatar_url || profileData.avatarUrl || '',
+    avatarUrl: profileData.avatar_url || profileData.avatarUrl || '',
     createdAt: new Date().toISOString(),
   };
 
@@ -266,6 +278,8 @@ export async function createUserProfile(userId, profileData) {
           email: profileData.email,
           full_name: profileData.name || profileData.full_name,
           phone: profileData.phone,
+          bio: profileData.bio || '',
+          avatar_url: profileData.avatar_url || profileData.avatarUrl || '',
         },
       ]);
       if (error) {

@@ -238,12 +238,20 @@ export default function App() {
             {user ? (
               <button
                 onClick={() => setShowProfile(true)}
-                className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-gray-100 hover:ring-emerald-400 transition-all shadow-xs"
+                className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-gray-100 hover:ring-emerald-400 transition-all shadow-xs overflow-hidden cursor-pointer"
                 title="My Profile"
               >
-                {profile?.name
-                  ? profile.name.charAt(0).toUpperCase()
-                  : user.email?.charAt(0).toUpperCase()}
+                {profile?.avatar_url || profile?.avatarUrl ? (
+                  <img
+                    src={profile.avatar_url || profile.avatarUrl}
+                    alt={profile.name || 'Avatar'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : profile?.name ? (
+                  profile.name.charAt(0).toUpperCase()
+                ) : (
+                  user.email?.charAt(0).toUpperCase()
+                )}
               </button>
             ) : (
               <button
@@ -369,6 +377,7 @@ export default function App() {
           user={user}
           onBack={() => setShowProfile(false)}
           onSignOut={handleSignOut}
+          onProfileUpdate={(updated) => setProfile(updated)}
         />
       )}
 

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import ImageCarousel from './ImageCarousel';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { getProfile } from '../lib/auth';
 
 const CATEGORY_META = {
   real_estate: { label: 'Real Estate', icon: '🏠', badge: 'bg-emerald-50 text-emerald-800' },
@@ -316,6 +317,25 @@ export default function ListingDetailSheet({
     setSubmittingInquiry(false);
   }, [listing?.id]);
 
+  // Fetch seller profile for avatar and bio
+  const [sellerProfile, setSellerProfile] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const sellerId = listing?.sellerId || listing?.user_id;
+    if (sellerId) {
+      getProfile(sellerId).then((prof) => {
+        if (!cancelled && prof) {
+          setSellerProfile(prof);
+        }
+      });
+    } else {
+      setSellerProfile(null);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [listing?.sellerId, listing?.user_id, listing?.id]);
+
   // Log inquiry to Supabase
   const logInquiry = async (method, inputPhone) => {
     try {
@@ -551,42 +571,77 @@ export default function ListingDetailSheet({
           {/* Financial / Loan / Lease Calculator Section */}
           <FinancialCalculator listing={listing} />
 
-          {/* Seller info card */}
-          {listing.sellerName && (
-            <div className="flex items-center justify-between bg-gray-50 rounded-2xl p-3 mb-4 border border-gray-100">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
-                  {listing.sellerName.charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-gray-900 truncate flex items-center gap-1.5">
-                    <span>{listing.sellerName}</span>
-                    {listing.sellerType === 'broker' && listing.isVerified && (
-                      <span
-                        title="Verified Broker"
-                        className="inline-flex items-center gap-0.5 text-[10px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded-full"
-                      >
-                        <span>🛡️</span>
-                        <span>Verified</span>
-                      </span>
+          {/* Seller info card with Avatar & Bio */}
+          {listing.sellerName && (() => {
+            const sellerAvatar =
+              sellerProfile?.avatar_url ||
+              sellerProfile?.avatarUrl ||
+              listing.sellerAvatar ||
+              listing.seller_avatar ||
+              '';
+            const sellerBio =
+              sellerProfile?.bio ||
+              listing.sellerBio ||
+              listing.seller_bio ||
+              '';
+            const sellerDisplayName = sellerProfile?.name || listing.sellerName;
+
+            return (
+              <div className="bg-gray-50 rounded-2xl p-3.5 mb-4 border border-gray-100">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {sellerAvatar ? (
+                      <img
+                        src={sellerAvatar}
+                        alt={sellerDisplayName}
+                        className="w-11 h-11 rounded-full object-cover shrink-0 ring-2 ring-emerald-500/20 shadow-xs"
+                      />
+                    ) : (
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-base font-bold shrink-0 shadow-xs">
+                        {sellerDisplayName.charAt(0).toUpperCase()}
+                      </div>
                     )}
-                  </p>
-                  <p className="text-xs text-gray-500 capitalize">
-                    {listing.sellerType || 'Seller'}
-                  </p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-900 truncate flex items-center gap-1.5">
+                        <span>{sellerDisplayName}</span>
+                        {listing.sellerType === 'broker' && listing.isVerified && (
+                          <span
+                            title="Verified Broker"
+                            className="inline-flex items-center gap-0.5 text-[10px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded-full"
+                          >
+                            <span>🛡️</span>
+                            <span>Verified</span>
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-500 capitalize">
+                        {sellerProfile?.company || listing.sellerType || 'Seller'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {listing.sellerId && onViewSeller && (
+                    <button
+                      onClick={() => onViewSeller(listing.sellerId)}
+                      className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 shrink-0 px-2.5 py-1.5 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer"
+                    >
+                      <User size={14} />
+                      <span>View Profile</span>
+                    </button>
+                  )}
                 </div>
+
+                {/* Seller Bio */}
+                {sellerBio && (
+                  <div className="mt-2.5 pt-2.5 border-t border-gray-200/60">
+                    <p className="text-xs text-gray-600 italic leading-relaxed">
+                      &ldquo;{sellerBio}&rdquo;
+                    </p>
+                  </div>
+                )}
               </div>
-              {listing.sellerId && onViewSeller && (
-                <button
-                  onClick={() => onViewSeller(listing.sellerId)}
-                  className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 shrink-0 px-2.5 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-                >
-                  <User size={14} />
-                  View Profile
-                </button>
-              )}
-            </div>
-          )}
+            );
+          })()}
 
           {/* Action buttons: WhatsApp, Call, Directions */}
           <div className="grid grid-cols-3 gap-2 pt-1">

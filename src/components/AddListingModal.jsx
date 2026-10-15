@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, MapPin, ImagePlus, Loader2, Trash2 } from 'lucide-react';
-import { uploadImages } from '../lib/storage-upload';
+import { uploadImages } from '../lib/uploadImage';
 import { getProfile } from '../lib/auth';
 
 const CATEGORIES = [
@@ -163,6 +163,8 @@ export default function AddListingModal({
         sellerName: profile?.name || user?.email?.split('@')[0] || 'Seller',
         sellerPhone: phone || profile?.phone || '',
         sellerType: sellerType || 'owner',
+        sellerAvatar: profile?.avatar_url || profile?.avatarUrl || '',
+        sellerBio: profile?.bio || '',
       };
 
       // Add category specific attributes

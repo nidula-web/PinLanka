@@ -94,9 +94,17 @@ export default function SellerProfilePage({ sellerId, onBack, onListingClick }) 
         {/* Profile card */}
         <div className="bg-white rounded-2xl p-5 shadow-sm mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-xl font-bold shrink-0">
-              {displayName.charAt(0).toUpperCase()}
-            </div>
+            {profile?.avatar_url || profile?.avatarUrl ? (
+              <img
+                src={profile.avatar_url || profile.avatarUrl}
+                alt={displayName}
+                className="w-16 h-16 rounded-full object-cover shrink-0 ring-2 ring-emerald-500/20 shadow-xs"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-xl font-bold shrink-0">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-gray-900 truncate">{displayName}</h2>
               {profile?.company && (
@@ -113,6 +121,12 @@ export default function SellerProfilePage({ sellerId, onBack, onListingClick }) 
               </span>
             </div>
           </div>
+
+          {profile?.bio && (
+            <p className="text-sm text-gray-600 mt-3.5 pt-3 border-t border-gray-100 italic leading-relaxed">
+              &ldquo;{profile.bio}&rdquo;
+            </p>
+          )}
 
           {phone && (
             <div className="flex gap-3 mt-4">

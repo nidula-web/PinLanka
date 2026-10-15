@@ -176,6 +176,9 @@ export default function AdminDashboard({
               is_verified: Boolean(p.is_verified),
               is_admin: Boolean(p.is_admin),
               company: p.company || '',
+              bio: p.bio || '',
+              avatar_url: p.avatar_url || '',
+              avatarUrl: p.avatar_url || '',
               createdAt: p.created_at || new Date().toISOString(),
             }))
           );
@@ -1076,9 +1079,17 @@ export default function AdminDashboard({
                           {/* Name & Avatar */}
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-500 to-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                                {target.name ? target.name.charAt(0).toUpperCase() : 'U'}
-                              </div>
+                              {target.avatar_url || target.avatarUrl ? (
+                                <img
+                                  src={target.avatar_url || target.avatarUrl}
+                                  alt={target.name || 'User'}
+                                  className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-gray-200"
+                                />
+                              ) : (
+                                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-500 to-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                                  {target.name ? target.name.charAt(0).toUpperCase() : 'U'}
+                                </div>
+                              )}
                               <div>
                                 <p className="font-bold text-gray-900 flex items-center gap-1.5">
                                   <span>{target.name}</span>
