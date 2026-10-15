@@ -489,9 +489,11 @@ export default function AdminDashboard({
         {/* Brand / Logo */}
         <div className="p-4 md:p-6 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-emerald-500 flex items-center justify-center text-white font-black text-sm shadow-md shadow-amber-500/20">
-              <Shield size={18} />
-            </div>
+            <img
+              src="/pin-logo.svg"
+              alt="PinLanka Logo"
+              className="w-8 h-8 object-contain shrink-0"
+            />
             <div>
               <h2 className="text-sm font-black text-white tracking-tight leading-none">
                 Pin<span className="text-emerald-400">Lanka</span>

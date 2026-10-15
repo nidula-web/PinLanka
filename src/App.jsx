@@ -178,9 +178,11 @@ export default function App() {
         {/* Row 1: Brand Logo & User Actions */}
         <div className="h-13 px-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-gradient-to-tr from-emerald-500 via-teal-600 to-blue-600 rounded-xl flex items-center justify-center shadow-xs">
-              <span className="text-white text-xs font-black tracking-wider">P</span>
-            </div>
+            <img
+              src="/pin-logo.svg"
+              alt="PinLanka Logo"
+              className="w-8 h-8 object-contain shrink-0"
+            />
             <div className="flex items-baseline gap-1.5">
               <h1 className="text-lg font-black text-gray-900 tracking-tight">
                 Pin<span className="text-emerald-600">Lanka</span>
