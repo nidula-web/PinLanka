@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   MapContainer,
   TileLayer,
@@ -9,6 +9,7 @@ import {
 } from 'react-leaflet';
 import L from 'leaflet';
 import { LocateFixed } from 'lucide-react';
+import MagicSearchBar from './MagicSearchBar';
 
 // --- Fix Leaflet default icon issues in Vite ---
 delete L.Icon.Default.prototype._getIconUrl;
@@ -92,8 +93,49 @@ export default function MapPage({
   onMarkerClick,
   pickMode,
   onPickLocation,
+  onSearchChange,
+  searchQuery: externalSearchQuery,
 }) {
   const mapRef = useRef(null);
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
+
+  const searchQuery =
+    externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
+
+  const handleSearchChange = useCallback(
+    (newQuery) => {
+      setInternalSearchQuery(newQuery);
+      if (onSearchChange) {
+        onSearchChange(newQuery);
+      }
+    },
+    [onSearchChange]
+  );
+
+  // Filter listings based on search text (title, description, main_category, location_name)
+  const displayedListings = useMemo(() => {
+    if (!searchQuery.trim()) return listings;
+    const q = searchQuery.toLowerCase().trim();
+    return listings.filter((l) => {
+      const title = (l.title || '').toLowerCase();
+      const description = (l.description || '').toLowerCase();
+      const mainCategory = (l.mainCategory || l.main_category || '').toLowerCase();
+      const locationName = (l.locationName || l.location_name || '').toLowerCase();
+      const propertyType = (l.propertyType || l.property_type || '').toLowerCase();
+      const vehicleType = (l.vehicleType || l.vehicle_type || '').toLowerCase();
+      const brand = (l.brand || '').toLowerCase();
+
+      return (
+        title.includes(q) ||
+        description.includes(q) ||
+        mainCategory.includes(q) ||
+        locationName.includes(q) ||
+        propertyType.includes(q) ||
+        vehicleType.includes(q) ||
+        brand.includes(q)
+      );
+    });
+  }, [listings, searchQuery]);
 
   return (
     <div className="relative w-full h-full">
@@ -122,7 +164,17 @@ export default function MapPage({
           </LayersControl.BaseLayer>
         </LayersControl>
 
-        {listings.map((listing) => (
+        {/* Floating Magic Search Bar */}
+        {!pickMode && (
+          <MagicSearchBar
+            onSearchChange={handleSearchChange}
+            searchQuery={searchQuery}
+            matchingListings={displayedListings}
+            totalCount={displayedListings.length}
+          />
+        )}
+
+        {displayedListings.map((listing) => (
           <Marker
             key={listing.id}
             position={[listing.lat, listing.lng]}
@@ -137,6 +189,13 @@ export default function MapPage({
             }}
           />
         ))}
+
+        {/* Subtle toast if query finds 0 listings */}
+        {!pickMode && searchQuery.trim() && displayedListings.length === 0 && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[1000] bg-gray-900/85 backdrop-blur-md text-white text-xs font-semibold px-4 py-2 rounded-full shadow-lg pointer-events-none transition-all border border-white/10">
+            No pins found matching &ldquo;{searchQuery}&rdquo;
+          </div>
+        )}
 
         <PickLocationHandler active={pickMode} onPick={onPickLocation} />
         <LocateButton />

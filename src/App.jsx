@@ -34,6 +34,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [activeSubCategory, setActiveSubCategory] = useState('all');
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
+  const [searchQuery, setSearchQuery] = useState('');
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const pickCallbackRef = useRef(null);
@@ -97,9 +98,33 @@ export default function App() {
       // Price range filters
       if (priceRange.min && l.price < Number(priceRange.min)) return false;
       if (priceRange.max && l.price > Number(priceRange.max)) return false;
+
+      // Search query filter (title, description, main_category, location_name)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const title = (l.title || '').toLowerCase();
+        const desc = (l.description || '').toLowerCase();
+        const mainCat = (l.mainCategory || l.main_category || '').toLowerCase();
+        const locName = (l.locationName || l.location_name || '').toLowerCase();
+        const propType = (l.propertyType || l.property_type || '').toLowerCase();
+        const vehType = (l.vehicleType || l.vehicle_type || '').toLowerCase();
+        const brand = (l.brand || '').toLowerCase();
+
+        const matches =
+          title.includes(q) ||
+          desc.includes(q) ||
+          mainCat.includes(q) ||
+          locName.includes(q) ||
+          propType.includes(q) ||
+          vehType.includes(q) ||
+          brand.includes(q);
+
+        if (!matches) return false;
+      }
+
       return true;
     });
-  }, [listings, activeCategory, activeSubCategory, priceRange]);
+  }, [listings, activeCategory, activeSubCategory, priceRange, searchQuery]);
 
   // --- Handlers ---
   const handleAddClick = () => {
@@ -261,6 +286,8 @@ export default function App() {
             onMarkerClick={setSelectedListing}
             pickMode={pickMode}
             onPickLocation={handlePickLocation}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
           />
         ) : (
           <ListView
