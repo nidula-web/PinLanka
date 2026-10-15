@@ -43,3 +43,35 @@ html, body, #root {
 .leaflet-container {
   font-family: inherit;
 }
+
+/* Custom styling for Leaflet layers control */
+.leaflet-control-layers {
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+  font-family: inherit !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  overflow: hidden !important;
+  margin-top: 14px !important;
+  margin-right: 14px !important;
+}
+
+.leaflet-control-layers-expanded {
+  padding: 10px 14px !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(8px);
+}
+
+.leaflet-control-layers-base label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-bottom: 6px !important;
+  cursor: pointer !important;
+}
+
+.leaflet-control-layers-base label:last-child {
+  margin-bottom: 0 !important;
+}
+
