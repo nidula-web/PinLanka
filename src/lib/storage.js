@@ -1,0 +1,414 @@
+import { supabase, isSupabaseConfigured } from './supabase';
+
+const LOCAL_STORAGE_KEY = 'pinlanka_marketplace_listings';
+
+export const CATEGORY_EMOJIS = {
+  real_estate: '🏠',
+  vehicles: '🚗',
+  electronics: '📱',
+  others: '📦',
+};
+
+export const CATEGORY_LABELS = {
+  real_estate: 'Real Estate',
+  vehicles: 'Vehicles',
+  electronics: 'Electronics',
+  others: 'Others',
+};
+
+// Rich multi-category Sri Lankan seed listings for immediate preview and testing
+export const SEED_LISTINGS = [
+  {
+    id: 'seed-1',
+    mainCategory: 'real_estate',
+    propertyType: 'apartment',
+    title: 'Luxury 3-Bed Penthouse with City Views',
+    price: 85000000,
+    priceTag: '85M',
+    size: '2,200 sqft',
+    locationName: 'Cinnamon Gardens, Colombo 07',
+    lat: 6.9044,
+    lng: 79.8683,
+    description:
+      'Stunning high-floor luxury apartment with panoramic views of Colombo skyline. Includes 3 en-suite bedrooms, imported Italian kitchen, swimming pool access, and 2 dedicated parking bays.',
+    sellerId: 'seller_colombo',
+    sellerName: 'Nimal Perera',
+    sellerPhone: '+94771234567',
+    sellerType: 'owner',
+    imageUrls: [
+      'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+    ],
+    createdAt: Date.now() - 1000 * 60 * 60 * 2,
+  },
+  {
+    id: 'seed-2',
+    mainCategory: 'vehicles',
+    vehicleType: 'car',
+    brand: 'Toyota',
+    year: '2021',
+    mileage: '38,000 km',
+    transmission: 'Automatic',
+    title: 'Toyota Land Cruiser Prado TX-L 2021',
+    price: 42500000,
+    priceTag: '42.5M',
+    locationName: 'Peradeniya Road, Kandy',
+    lat: 7.2906,
+    lng: 80.6337,
+    description:
+      'First owner, company maintained with full service records at Toyota Lanka. Sunroof, 7-seater, beige leather interior, brand new tyres, mint condition.',
+    sellerId: 'seller_kandy_auto',
+    sellerName: 'Kandy Premium Auto',
+    sellerPhone: '+94719876543',
+    sellerType: 'dealer',
+    imageUrls: [
+      'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80',
+    ],
+    createdAt: Date.now() - 1000 * 60 * 60 * 6,
+  },
+  {
+    id: 'seed-3',
+    mainCategory: 'electronics',
+    condition: 'Like New',
+    brand: 'Apple',
+    model: 'MacBook Pro 16" M3 Max',
+    title: 'MacBook Pro 16" M3 Max (36GB / 1TB SSD)',
+    price: 890000,
+    priceTag: '890k',
+    locationName: 'Galle Fort, Galle',
+    lat: 6.0329,
+    lng: 80.2170,
+    description:
+      'Space Black color, battery health 100%, cycle count 18. Comes with full box, genuine MagSafe braided cable and 140W fast charger. AppleCare+ warranty remaining.',
+    sellerId: 'seller_galle_tech',
+    sellerName: 'Sunil Wickramasinghe',
+    sellerPhone: '+94775551234',
+    sellerType: 'owner',
+    imageUrls: [
+      'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80',
+    ],
+    createdAt: Date.now() - 1000 * 60 * 60 * 12,
+  },
+  {
+    id: 'seed-4',
+    mainCategory: 'vehicles',
+    vehicleType: 'bike',
+    brand: 'Yamaha',
+    year: '2022',
+    mileage: '12,500 km',
+    transmission: 'Manual',
+    title: 'Yamaha MT-15 Version 2.0 (ABS)',
+    price: 1150000,
+    priceTag: '1.15M',
+    locationName: 'Lewis Place, Negombo',
+    lat: 7.2088,
+    lng: 79.8358,
+    description:
+      'Cyan Storm color, dual channel ABS, Bluetooth connectivity, single owner, carefully ridden with original accessories and clear registration documents.',
+    sellerId: 'seller_negombo_moto',
+    sellerName: 'West Coast Motors',
+    sellerPhone: '+94762229876',
+    sellerType: 'broker',
+    imageUrls: [
+      'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=800&q=80',
+    ],
+    createdAt: Date.now() - 1000 * 60 * 60 * 24,
+  },
+  {
+    id: 'seed-5',
+    mainCategory: 'real_estate',
+    propertyType: 'house',
+    size: '2,400 sqft',
+    title: 'Modern Architect-Designed Family Residence',
+    price: 52000000,
+    priceTag: '52M',
+    locationName: 'Royal Gardens, Rajagiriya',
+    lat: 6.9085,
+    lng: 79.8972,
+    description:
+      'Tri-level contemporary architectural home with rooftop terrace, open-concept living area, double car garage, and 24-hour gated security neighborhood.',
+    sellerId: 'seller_rajagiriya',
+    sellerName: 'Chaminda Fernando',
+    sellerPhone: '+94778884321',
+    sellerType: 'owner',
+    imageUrls: [
+      'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80',
+    ],
+    createdAt: Date.now() - 1000 * 60 * 60 * 48,
+  },
+  {
+    id: 'seed-6',
+    mainCategory: 'vehicles',
+    vehicleType: 'tuk',
+    brand: 'Bajaj',
+    year: '2020',
+    mileage: '45,000 km',
+    transmission: 'Manual',
+    title: 'Bajaj RE 4-Stroke Three Wheeler',
+    price: 1450000,
+    priceTag: '1.45M',
+    locationName: 'Pettah, Colombo',
+    lat: 6.9380,
+    lng: 79.8540,
+    description:
+      'Original green color, new canopy, brand new tyres, engine 100% in running order. Revenue license & insurance up to date.',
+    sellerId: 'seller_colombo_tuk',
+    sellerName: 'Rohan Auto Sales',
+    sellerPhone: '+94771122334',
+    sellerType: 'broker',
+    imageUrls: [
+      'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80',
+    ],
+    createdAt: Date.now() - 1000 * 60 * 60 * 72,
+  },
+  {
+    id: 'seed-7',
+    mainCategory: 'others',
+    condition: 'Brand New',
+    brand: 'Moratuwa Craft',
+    model: 'Masterpiece 8-Seater',
+    title: 'Solid Teak 8-Seater Dining Table & Chairs',
+    price: 245000,
+    priceTag: '245k',
+    locationName: 'Moratuwa Town, Moratuwa',
+    lat: 6.7730,
+    lng: 79.8816,
+    description:
+      'Handcrafted seasoned grade-1 teak wood dining table with 10mm tempered glass top and 8 cushioned ergonomic high-back chairs. Islandwide delivery available.',
+    sellerId: 'seller_moratuwa',
+    sellerName: 'Moratuwa Teak Gallery',
+    sellerPhone: '+94703337788',
+    sellerType: 'dealer',
+    imageUrls: [
+      'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&w=800&q=80',
+    ],
+    createdAt: Date.now() - 1000 * 60 * 60 * 96,
+  },
+  {
+    id: 'seed-8',
+    mainCategory: 'electronics',
+    condition: 'Brand New',
+    brand: 'Sony',
+    model: 'Alpha 7 IV Mirrorless',
+    title: 'Sony Alpha 7 IV Full-Frame Camera (Body Only)',
+    price: 720000,
+    priceTag: '720k',
+    locationName: 'Kandy City Center, Kandy',
+    lat: 7.2940,
+    lng: 80.6380,
+    description:
+      'Brand new in sealed box with 2 years Singer / CameraLK warranty. 33MP Exmor R CMOS sensor, 4K 60p video, 10-bit 4:2:2, real-time eye AF.',
+    sellerId: 'seller_kandy_cam',
+    sellerName: 'Apex Electronics',
+    sellerPhone: '+94776655443',
+    sellerType: 'dealer',
+    imageUrls: [
+      'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=800&q=80',
+    ],
+    createdAt: Date.now() - 1000 * 60 * 60 * 120,
+  },
+];
+
+// Helper to normalize Supabase SQL columns into camelCase format
+export function normalizeListing(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    mainCategory: row.main_category || row.mainCategory || 'others',
+    propertyType: row.property_type || row.propertyType || '',
+    vehicleType: row.vehicle_type || row.vehicleType || '',
+    title: row.title || '',
+    price: Number(row.price) || 0,
+    priceTag: row.price_tag || row.priceTag || '',
+    size: row.size || '',
+    locationName: row.location_name || row.locationName || '',
+    lat: Number(row.lat) || 0,
+    lng: Number(row.lng) || 0,
+    description: row.description || '',
+    sellerId: row.user_id || row.sellerId || row.seller_id || '',
+    sellerName: row.seller_name || row.sellerName || '',
+    sellerPhone: row.seller_phone || row.sellerPhone || '',
+    sellerType: row.seller_type || row.sellerType || 'owner',
+    isVerified: Boolean(row.is_verified || row.isVerified),
+    brand: row.brand || '',
+    year: row.year ? String(row.year) : '',
+    mileage: row.mileage || '',
+    transmission: row.transmission || '',
+    condition: row.condition || '',
+    model: row.model || '',
+    imageUrls: Array.isArray(row.image_urls)
+      ? row.image_urls
+      : Array.isArray(row.imageUrls)
+      ? row.imageUrls
+      : [],
+    createdAt: row.created_at || row.createdAt || Date.now(),
+  };
+}
+
+// Local state & change subscribers
+const listeners = new Set();
+
+function getStoredLocalListings() {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(SEED_LISTINGS));
+      return SEED_LISTINGS;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : SEED_LISTINGS;
+  } catch {
+    return SEED_LISTINGS;
+  }
+}
+
+function saveStoredLocalListings(listings) {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(listings));
+  } catch {
+    // Ignore storage quota
+  }
+  listeners.forEach((cb) => cb(listings));
+}
+
+/**
+ * Subscribe to real-time listing updates using Supabase.
+ * Returns an unsubscribe function.
+ */
+export function subscribeListings(callback) {
+  if (isSupabaseConfigured && supabase) {
+    // 1. Initial fetch from Supabase
+    getListings().then((initial) => {
+      callback(initial);
+    });
+
+    // 2. Real-time subscription to postgres_changes
+    const channel = supabase
+      .channel('public:listings')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'listings' },
+        async () => {
+          const updated = await getListings();
+          callback(updated);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }
+
+  // Local fallback subscription
+  listeners.add(callback);
+  setTimeout(() => {
+    callback(getStoredLocalListings());
+  }, 0);
+
+  return () => {
+    listeners.delete(callback);
+  };
+}
+
+/**
+ * One-shot fetch of all listings from Supabase.
+ */
+export async function getListings() {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('listings')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (data && !error && data.length > 0) {
+        return data.map(normalizeListing);
+      }
+    } catch (err) {
+      console.warn('Supabase getListings error, returning local listings:', err);
+    }
+  }
+  return getStoredLocalListings();
+}
+
+/**
+ * Save a new listing (to Supabase 'listings' table if configured, else to localStorage).
+ */
+export async function saveListing(listing, currentUserId) {
+  const rawUserId = currentUserId || listing.sellerId || listing.user_id;
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawUserId);
+  const userId = isUUID ? rawUserId : null;
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const rowToInsert = {
+        user_id: userId,
+        title: listing.title,
+        price: Number(listing.price),
+        price_tag: listing.priceTag || '',
+        main_category: listing.mainCategory || 'others',
+        property_type: listing.propertyType || null,
+        vehicle_type: listing.vehicleType || null,
+        brand: listing.brand || null,
+        year: listing.year ? String(listing.year) : null,
+        mileage: listing.mileage || null,
+        transmission: listing.transmission || null,
+        condition: listing.condition || null,
+        model: listing.model || null,
+        size: listing.size || null,
+        location_name: listing.locationName || '',
+        lat: Number(listing.lat),
+        lng: Number(listing.lng),
+        description: listing.description || '',
+        image_urls: listing.imageUrls || [],
+        seller_name: listing.sellerName || '',
+        seller_phone: listing.sellerPhone || '',
+        seller_type: listing.sellerType || 'owner',
+      };
+
+      const { data, error } = await supabase
+        .from('listings')
+        .insert([rowToInsert])
+        .select()
+        .single();
+
+      if (!error && data) {
+        return normalizeListing(data);
+      } else if (error) {
+        console.warn('Supabase insert listing warning, saving locally:', error.message);
+      }
+    } catch (err) {
+      console.warn('Supabase saveListing exception, saving locally:', err);
+    }
+  }
+
+  // Local mode save
+  const current = getStoredLocalListings();
+  const newListing = {
+    ...listing,
+    id: 'local_' + Date.now(),
+    createdAt: Date.now(),
+  };
+  const updated = [newListing, ...current];
+  saveStoredLocalListings(updated);
+  return newListing;
+}
+
+/**
+ * Delete a listing by id.
+ */
+export async function deleteListing(id) {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      await supabase.from('listings').delete().eq('id', id);
+    } catch (err) {
+      console.warn('Supabase deleteListing error:', err);
+    }
+  }
+
+  const current = getStoredLocalListings();
+  const updated = current.filter((l) => l.id !== id);
+  saveStoredLocalListings(updated);
+}
