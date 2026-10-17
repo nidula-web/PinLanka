@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { getOptimizedImageUrl } from '../utils/cloudinary';
 
 export default function ImageCarousel({ images = [] }) {
   const [current, setCurrent] = useState(0);
 
   if (!images || images.length === 0) {
     return (
-      <div className="w-full h-48 bg-gray-100 rounded-xl flex items-center justify-center mb-4">
-        <span className="text-gray-400 text-sm">No images</span>
+      <div className="w-full aspect-video bg-gray-200 rounded-2xl flex items-center justify-center mb-4">
+        <span className="text-gray-400 text-sm font-semibold">No images</span>
       </div>
     );
   }
@@ -18,11 +19,11 @@ export default function ImageCarousel({ images = [] }) {
   return (
     <div className="relative w-full mb-4">
       {/* Image */}
-      <div className="relative w-full h-52 rounded-xl overflow-hidden bg-gray-100">
+      <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-gray-200 shadow-xs">
         <img
-          src={images[current]}
-          alt={`Property image ${current + 1}`}
-          className="w-full h-full object-cover transition-opacity duration-200"
+          src={getOptimizedImageUrl(images[current], 'full')}
+          alt={`Listing image ${current + 1}`}
+          className="w-full aspect-video object-cover bg-gray-200 transition-opacity duration-200"
         />
 
         {/* Counter badge */}

@@ -3,6 +3,7 @@ import {
   MapContainer,
   TileLayer,
   Marker,
+  Popup,
   useMapEvents,
   useMap,
   LayersControl,
@@ -10,6 +11,7 @@ import {
 import L from 'leaflet';
 import { LocateFixed } from 'lucide-react';
 import MagicSearchBar from './MagicSearchBar';
+import { getOptimizedImageUrl } from '../utils/cloudinary';
 
 // --- Fix Leaflet default icon issues in Vite ---
 delete L.Icon.Default.prototype._getIconUrl;
@@ -203,23 +205,70 @@ export default function MapPage({
           />
         )}
 
-        {displayedListings.map((listing) => (
-          <Marker
-            key={listing.id}
-            position={[listing.lat, listing.lng]}
-            zIndexOffset={listing.isPremium ? 4999 : 0}
-            icon={createPriceBubble(
-              listing.priceTag,
-              listing.sellerType,
-              listing.mainCategory,
-              listing.isVerified,
-              listing.isPremium
-            )}
-            eventHandlers={{
-              click: () => onMarkerClick(listing),
-            }}
-          />
-        ))}
+        {displayedListings.map((listing) => {
+          const rawImg = listing.imageUrls?.[0] || listing.imageUrl || '';
+          const pinImgUrl = rawImg ? getOptimizedImageUrl(rawImg, 'pin') : '';
+
+          return (
+            <Marker
+              key={listing.id}
+              position={[listing.lat, listing.lng]}
+              zIndexOffset={listing.isPremium ? 4999 : 0}
+              icon={createPriceBubble(
+                listing.priceTag,
+                listing.sellerType,
+                listing.mainCategory,
+                listing.isVerified,
+                listing.isPremium
+              )}
+              eventHandlers={{
+                click: () => onMarkerClick && onMarkerClick(listing),
+              }}
+            >
+              <Popup
+                className="selinmap-pin-popup"
+                maxWidth={220}
+                minWidth={170}
+                closeButton={false}
+              >
+                <div
+                  onClick={() => onMarkerClick && onMarkerClick(listing)}
+                  className="cursor-pointer w-full max-w-[200px] overflow-hidden text-left font-sans select-none"
+                >
+                  {pinImgUrl ? (
+                    <img
+                      src={pinImgUrl}
+                      alt={listing.title}
+                      className="w-full aspect-square object-cover rounded-t-md bg-gray-200"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full aspect-square object-cover rounded-t-md bg-gray-200 flex items-center justify-center text-gray-400 text-xs font-semibold">
+                      No Photo
+                    </div>
+                  )}
+                  <div className="p-2.5 bg-white rounded-b-md">
+                    <h4 className="text-xs font-bold text-gray-900 truncate leading-snug">
+                      {listing.title}
+                    </h4>
+                    <p className="text-xs font-black text-emerald-600 mt-1">
+                      {listing.isPremium && <span className="text-amber-500 mr-0.5">⭐</span>}
+                      Rs. {Number(listing.price).toLocaleString()}
+                      {listing.priceTag && (
+                        <span className="text-[10px] text-gray-500 font-semibold ml-1">
+                          ({listing.priceTag})
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[10px] text-gray-500 truncate mt-0.5">
+                      📍 {listing.locationName || 'Sri Lanka'}
+                    </p>
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
 
         {/* Subtle toast if query finds 0 listings */}
         {!pickMode && searchQuery.trim() && displayedListings.length === 0 && (

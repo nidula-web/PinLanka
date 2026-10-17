@@ -145,10 +145,11 @@ export default function MyListings({
         <div className="space-y-3.5">
           {userListings.map((item) => {
             const isPremium = Boolean(item.isPremium || item.is_premium);
-            const thumb =
+            const rawThumb =
               item.imageUrls?.[0] ||
               item.imageUrl ||
               'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=400&q=80';
+            const thumb = getOptimizedImageUrl(rawThumb, 'thumbnail');
 
             return (
               <div

@@ -1,4 +1,5 @@
 import { MapPin, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { getOptimizedImageUrl } from '../utils/cloudinary';
 
 const CATEGORY_ICONS = {
   real_estate: '🏠',
@@ -56,16 +57,16 @@ export default function ListView({ listings, onListingClick }) {
                 className="bg-white rounded-2xl overflow-hidden shadow-xs hover:shadow-md border border-gray-200/70 transition-all duration-200 text-left flex flex-col group cursor-pointer active:scale-[0.99]"
               >
                 {/* Thumbnail Container */}
-                <div className="relative w-full aspect-[16/10] bg-gray-100 overflow-hidden">
+                <div className="relative w-full aspect-[4/3] bg-gray-200 overflow-hidden">
                   {hasImage ? (
                     <img
-                      src={item.imageUrls[0]}
+                      src={getOptimizedImageUrl(item.imageUrls[0], 'thumbnail')}
                       alt={item.title}
                       loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full aspect-[4/3] object-cover bg-gray-200 group-hover:scale-105 transition-transform duration-300"
                     />
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 bg-gray-100">
+                    <div className="w-full aspect-[4/3] flex flex-col items-center justify-center text-gray-400 bg-gray-200">
                       <ImageIcon size={32} />
                       <span className="text-[10px] font-semibold mt-1">No photos</span>
                     </div>

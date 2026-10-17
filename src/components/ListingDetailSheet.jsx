@@ -19,6 +19,8 @@ import {
 import ImageCarousel from './ImageCarousel';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { getProfile } from '../lib/auth';
+import { Helmet } from 'react-helmet-async';
+import { getOptimizedImageUrl } from '../utils/cloudinary';
 
 const CATEGORY_META = {
   real_estate: { label: 'Real Estate', icon: '🏠', badge: 'bg-emerald-50 text-emerald-800' },
@@ -418,8 +420,23 @@ export default function ListingDetailSheet({
   const catMeta = CATEGORY_META[listing.mainCategory] || CATEGORY_META.others;
   const smartMetric = getSmartPriceMetric(listing);
 
+  const title = listing.title || 'Listing Details';
+  const description = listing.description || `View ${title} on Selinmap - Sri Lanka's live map marketplace.`;
+  const rawFirstImage = listing.imageUrls?.[0] || listing.imageUrl || '';
+  const optimizedFullImageUrl = rawFirstImage
+    ? getOptimizedImageUrl(rawFirstImage, 'full')
+    : 'https://selinmap.com/pin-logo.svg';
+
   return (
     <>
+      <Helmet>
+        <title>{title} | Selinmap</title>
+        <meta name="description" content={description.substring(0, 150)} />
+        <meta property="og:title" content={title} />
+        <meta property="og:image" content={optimizedFullImageUrl} />
+        <meta property="og:type" content="website" />
+      </Helmet>
+
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 z-[2000] transition-opacity"
@@ -811,3 +828,5 @@ export default function ListingDetailSheet({
     </>
   );
 }
+
+export { ListingDetailSheet as ListingDetails };
