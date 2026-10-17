@@ -1,18 +1,98 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, MapPin, ImagePlus, Loader2, Trash2 } from 'lucide-react';
+import { X, MapPin, ImagePlus, Loader2, Trash2, ChevronDown } from 'lucide-react';
 import { uploadImages } from '../lib/uploadImage';
 import { getProfile } from '../lib/auth';
 import SmartLocationPicker from './SmartLocationPicker';
 
-const CATEGORIES = [
-  { key: 'real_estate', label: 'Real Estate', icon: '🏠' },
-  { key: 'vehicles', label: 'Vehicles', icon: '🚗' },
-  { key: 'electronics', label: 'Electronics', icon: '📱' },
-  { key: 'others', label: 'Others', icon: '📦' },
+const MAIN_CATEGORIES = [
+  { key: 'real_estate', label: 'Real Estate 🏠' },
+  { key: 'vehicles', label: 'Vehicles 🚗' },
+  { key: 'electronics', label: 'Electronics 📱' },
+  { key: 'services', label: 'Services 🛠️' },
+  { key: 'others', label: 'Others 📦' },
 ];
 
-const PROPERTY_TYPES = ['land', 'house', 'apartment', 'commercial'];
-const VEHICLE_TYPES = ['car', 'bike', 'van', 'tuk', 'other'];
+const REAL_ESTATE_TYPES = [
+  { key: 'land', label: 'Land & Plots' },
+  { key: 'house', label: 'Houses & Villas' },
+  { key: 'apartment', label: 'Apartments & Condos' },
+  { key: 'commercial', label: 'Commercial Property' },
+  { key: 'villa', label: 'Holiday Homes / Villas' },
+  { key: 'other', label: 'Other Real Estate' },
+];
+
+const VEHICLE_TYPES = [
+  { key: 'car', label: 'Car' },
+  { key: 'bike', label: 'Motorbike / Scooter' },
+  { key: 'van', label: 'Van / Bus' },
+  { key: 'tuk', label: 'Three Wheeler (Tuk)' },
+  { key: 'suv', label: 'SUV & Jeep' },
+  { key: 'lorry', label: 'Lorry & Heavy Duty' },
+  { key: 'other', label: 'Other Vehicle' },
+];
+
+const VEHICLE_BRANDS = [
+  'Toyota',
+  'Honda',
+  'Nissan',
+  'Suzuki',
+  'Mitsubishi',
+  'Hyundai',
+  'Kia',
+  'Mazda',
+  'Daihatsu',
+  'Bajaj',
+  'TVS',
+  'Yamaha',
+  'Hero',
+  'BMW',
+  'Mercedes-Benz',
+  'Audi',
+  'Tata',
+  'Mahindra',
+  'Other',
+];
+
+const ELECTRONICS_TYPES = [
+  { key: 'mobile', label: 'Mobile Phone' },
+  { key: 'laptop', label: 'Laptop & Computer' },
+  { key: 'tv', label: 'TV & Home Audio' },
+  { key: 'camera', label: 'Camera & Optics' },
+  { key: 'tablet', label: 'Tablet & iPad' },
+  { key: 'audio', label: 'Headphones & Audio' },
+  { key: 'other', label: 'Other Electronics' },
+];
+
+const ELECTRONICS_BRANDS = [
+  'Apple',
+  'Samsung',
+  'Sony',
+  'Xiaomi',
+  'Google',
+  'Dell',
+  'HP',
+  'Lenovo',
+  'Asus',
+  'Acer',
+  'LG',
+  'Panasonic',
+  'Canon',
+  'Nikon',
+  'Huawei',
+  'JBL',
+  'Other',
+];
+
+const SERVICES_TYPES = [
+  { key: 'home_construction', label: 'Construction & Renovation' },
+  { key: 'vehicle_repair', label: 'Auto & Vehicle Repair' },
+  { key: 'it_services', label: 'IT, Web & Graphic Design' },
+  { key: 'cleaning', label: 'Cleaning & Housekeeping' },
+  { key: 'tuition', label: 'Tuition & Education' },
+  { key: 'electrical_plumbing', label: 'Electrical & Plumbing' },
+  { key: 'other', label: 'Other Services' },
+];
+
 const TRANSMISSIONS = ['Automatic', 'Manual'];
 const CONDITIONS = ['Brand New', 'Like New', 'Used'];
 const SELLER_TYPES = [
@@ -44,15 +124,23 @@ export default function AddListingModal({
   profile,
 }) {
   const [mainCategory, setMainCategory] = useState('real_estate');
+  const [subCategory, setSubCategory] = useState('land');
   const [propertyType, setPropertyType] = useState('land');
   const [size, setSize] = useState('');
 
   // Vehicle specific
   const [vehicleType, setVehicleType] = useState('car');
-  const [brand, setBrand] = useState('');
+  const [brand, setBrand] = useState('Toyota');
+  const [customBrand, setCustomBrand] = useState('');
   const [year, setYear] = useState('');
   const [mileage, setMileage] = useState('');
   const [transmission, setTransmission] = useState('Automatic');
+
+  // Electronics specific
+  const [electronicsType, setElectronicsType] = useState('mobile');
+
+  // Services specific
+  const [serviceType, setServiceType] = useState('home_construction');
 
   // Electronics / Others specific
   const [condition, setCondition] = useState('Used');
@@ -136,6 +224,29 @@ export default function AddListingModal({
     });
   };
 
+  const handleMainCategoryChange = (newCat) => {
+    setMainCategory(newCat);
+    if (newCat === 'real_estate') {
+      setSubCategory('land');
+      setPropertyType('land');
+    } else if (newCat === 'vehicles') {
+      setSubCategory('car');
+      setVehicleType('car');
+      setBrand('Toyota');
+    } else if (newCat === 'electronics') {
+      setSubCategory('mobile');
+      setElectronicsType('mobile');
+      setBrand('Apple');
+    } else if (newCat === 'services') {
+      setSubCategory('home_construction');
+      setServiceType('home_construction');
+      setBrand('');
+    } else {
+      setSubCategory('other');
+      setBrand('');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title || !price || !lat || !lng) {
@@ -150,8 +261,26 @@ export default function AddListingModal({
         imageUrls = await uploadImages(imageFiles);
       }
 
+      const effectiveBrand = brand === 'Other' ? (customBrand || 'Other') : (brand || '');
+      const activeSubCategory =
+        mainCategory === 'real_estate'
+          ? propertyType
+          : mainCategory === 'vehicles'
+          ? vehicleType
+          : mainCategory === 'electronics'
+          ? electronicsType
+          : mainCategory === 'services'
+          ? serviceType
+          : subCategory || 'other';
+
       const baseListing = {
         mainCategory,
+        subCategory: activeSubCategory,
+        sub_category: activeSubCategory,
+        propertyType: mainCategory === 'real_estate' ? activeSubCategory : '',
+        vehicleType: mainCategory === 'vehicles' ? activeSubCategory : '',
+        brand: effectiveBrand,
+        model: model || '',
         title,
         price: Number(price),
         priceTag: priceTag || generateDefaultPriceTag(price) || 'N/A',
@@ -166,22 +295,19 @@ export default function AddListingModal({
         sellerType: sellerType || 'owner',
         sellerAvatar: profile?.avatar_url || profile?.avatarUrl || '',
         sellerBio: profile?.bio || '',
+        isPremium: false,
+        is_premium: false,
       };
 
       // Add category specific attributes
       if (mainCategory === 'real_estate') {
-        baseListing.propertyType = propertyType;
         baseListing.size = size;
       } else if (mainCategory === 'vehicles') {
-        baseListing.vehicleType = vehicleType;
-        baseListing.brand = brand;
         baseListing.year = year;
         baseListing.mileage = mileage;
         baseListing.transmission = transmission;
       } else if (mainCategory === 'electronics' || mainCategory === 'others') {
         baseListing.condition = condition;
-        baseListing.brand = brand;
-        baseListing.model = model;
       }
 
       await onSave(baseListing);
@@ -191,7 +317,8 @@ export default function AddListingModal({
       setPrice('');
       setPriceTag('');
       setSize('');
-      setBrand('');
+      setBrand('Toyota');
+      setCustomBrand('');
       setYear('');
       setMileage('');
       setModel('');
@@ -226,37 +353,31 @@ export default function AddListingModal({
           </div>
 
           <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4 text-left">
-            {/* Step 1: Category Selector */}
+            {/* Step 1: Cascading First Dropdown: Main Category */}
             <div>
-              <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">
-                1. Select Category *
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                1. Main Category *
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {CATEGORIES.map((cat) => {
-                  const isSelected = mainCategory === cat.key;
-                  return (
-                    <button
-                      key={cat.key}
-                      type="button"
-                      onClick={() => setMainCategory(cat.key)}
-                      className={`p-2.5 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all ${
-                        isSelected
-                          ? 'border-gray-900 bg-gray-900 text-white shadow-sm ring-2 ring-gray-900/20'
-                          : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:bg-gray-100'
-                      }`}
-                    >
-                      <span className="text-xl">{cat.icon}</span>
-                      <span className="text-xs font-bold">{cat.label}</span>
-                    </button>
-                  );
-                })}
+              <div className="relative">
+                <select
+                  value={mainCategory}
+                  onChange={(e) => handleMainCategoryChange(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white appearance-none cursor-pointer"
+                >
+                  {MAIN_CATEGORIES.map((cat) => (
+                    <option key={cat.key} value={cat.key}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
             </div>
 
-            {/* Step 2: Dynamic Category-Specific Fields */}
-            <div className="bg-gray-50/80 p-3.5 rounded-xl border border-gray-100 space-y-3">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                {CATEGORIES.find((c) => c.key === mainCategory)?.label} Details
+            {/* Step 2: Dynamic Cascading Sub-Category Dropdowns */}
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-3">
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
+                {MAIN_CATEGORIES.find((c) => c.key === mainCategory)?.label} Specifications
               </span>
 
               {/* REAL ESTATE SPECIFIC */}
@@ -264,36 +385,37 @@ export default function AddListingModal({
                 <>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Property Type
+                      Property Type *
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                      {PROPERTY_TYPES.map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setPropertyType(t)}
-                          className={`py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                            propertyType === t
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
+                    <div className="relative">
+                      <select
+                        value={propertyType}
+                        onChange={(e) => {
+                          setPropertyType(e.target.value);
+                          setSubCategory(e.target.value);
+                        }}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                      >
+                        {REAL_ESTATE_TYPES.map((t) => (
+                          <option key={t.key} value={t.key}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Size (Perches / sqft)
+                      Land / Property Size
                     </label>
                     <input
                       type="text"
                       value={size}
                       onChange={(e) => setSize(e.target.value)}
                       placeholder="e.g. 15 Perches or 2,200 sqft"
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </>
@@ -302,39 +424,77 @@ export default function AddListingModal({
               {/* VEHICLES SPECIFIC */}
               {mainCategory === 'vehicles' && (
                 <>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Vehicle Type
-                    </label>
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-                      {VEHICLE_TYPES.map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setVehicleType(t)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all whitespace-nowrap ${
-                            vehicleType === t
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                          }`}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Vehicle Type *
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={vehicleType}
+                          onChange={(e) => {
+                            setVehicleType(e.target.value);
+                            setSubCategory(e.target.value);
+                          }}
+                          className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
                         >
-                          {t === 'tuk' ? 'Three Wheeler' : t}
-                        </button>
-                      ))}
+                          {VEHICLE_TYPES.map((t) => (
+                            <option key={t.key} value={t.key}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Brand *
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={brand}
+                          onChange={(e) => setBrand(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                        >
+                          {VEHICLE_BRANDS.map((b) => (
+                            <option key={b} value={b}>
+                              {b}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  {brand === 'Other' && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Brand</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Custom Brand Name</label>
                       <input
                         type="text"
-                        value={brand}
-                        onChange={(e) => setBrand(e.target.value)}
-                        placeholder="e.g. Toyota / Honda"
-                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        value={customBrand}
+                        onChange={(e) => setCustomBrand(e.target.value)}
+                        placeholder="Enter vehicle make / brand"
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Model *</label>
+                    <input
+                      type="text"
+                      required
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      placeholder="e.g. Vitz, Civic, Axio, Prius, Swift, Pulsar..."
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Year</label>
                       <input
@@ -342,12 +502,9 @@ export default function AddListingModal({
                         value={year}
                         onChange={(e) => setYear(e.target.value)}
                         placeholder="e.g. 2021"
-                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2.5 py-2 bg-white border border-gray-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Mileage</label>
                       <input
@@ -355,64 +512,184 @@ export default function AddListingModal({
                         value={mileage}
                         onChange={(e) => setMileage(e.target.value)}
                         placeholder="e.g. 45,000 km"
-                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2.5 py-2 bg-white border border-gray-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Transmission</label>
-                      <div className="flex gap-1">
+                      <select
+                        value={transmission}
+                        onChange={(e) => setTransmission(e.target.value)}
+                        className="w-full px-2 py-2 bg-white border border-gray-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                      >
                         {TRANSMISSIONS.map((tr) => (
-                          <button
-                            key={tr}
-                            type="button"
-                            onClick={() => setTransmission(tr)}
-                            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-                              transmission === tr
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-gray-200 text-gray-600'
-                            }`}
-                          >
+                          <option key={tr} value={tr}>
                             {tr}
-                          </button>
+                          </option>
                         ))}
-                      </div>
+                      </select>
                     </div>
                   </div>
                 </>
               )}
 
-              {/* ELECTRONICS & OTHERS SPECIFIC */}
-              {(mainCategory === 'electronics' || mainCategory === 'others') && (
+              {/* ELECTRONICS SPECIFIC */}
+              {mainCategory === 'electronics' && (
                 <>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Item Condition</label>
-                    <div className="flex gap-1.5">
-                      {CONDITIONS.map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => setCondition(c)}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                            condition === c
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                          }`}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Device Type *
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={electronicsType}
+                          onChange={(e) => {
+                            setElectronicsType(e.target.value);
+                            setSubCategory(e.target.value);
+                          }}
+                          className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
                         >
-                          {c}
-                        </button>
-                      ))}
+                          {ELECTRONICS_TYPES.map((t) => (
+                            <option key={t.key} value={t.key}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Brand *
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={brand}
+                          onChange={(e) => setBrand(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                        >
+                          {ELECTRONICS_BRANDS.map((b) => (
+                            <option key={b} value={b}>
+                              {b}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  {brand === 'Other' && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Brand</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Custom Brand Name</label>
+                      <input
+                        type="text"
+                        value={customBrand}
+                        onChange={(e) => setCustomBrand(e.target.value)}
+                        placeholder="Enter brand name"
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Model / Specs *</label>
+                      <input
+                        type="text"
+                        required
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        placeholder="e.g. iPhone 15 Pro, Galaxy S24..."
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Item Condition</label>
+                      <select
+                        value={condition}
+                        onChange={(e) => setCondition(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {CONDITIONS.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* SERVICES SPECIFIC */}
+              {mainCategory === 'services' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Service Type *
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={serviceType}
+                        onChange={(e) => {
+                          setServiceType(e.target.value);
+                          setSubCategory(e.target.value);
+                        }}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                      >
+                        {SERVICES_TYPES.map((t) => (
+                          <option key={t.key} value={t.key}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* OTHERS SPECIFIC */}
+              {mainCategory === 'others' && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Item Type / Category</label>
+                      <input
+                        type="text"
+                        value={subCategory}
+                        onChange={(e) => setSubCategory(e.target.value)}
+                        placeholder="e.g. Furniture, Sports, Pets..."
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Condition</label>
+                      <select
+                        value={condition}
+                        onChange={(e) => setCondition(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {CONDITIONS.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Brand / Maker</label>
                       <input
                         type="text"
                         value={brand}
                         onChange={(e) => setBrand(e.target.value)}
-                        placeholder="e.g. Apple / Samsung"
-                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g. Singer, Damro..."
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
@@ -421,8 +698,8 @@ export default function AddListingModal({
                         type="text"
                         value={model}
                         onChange={(e) => setModel(e.target.value)}
-                        placeholder="e.g. iPhone 15 Pro / 256GB"
-                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g. 4-Chairs Teak Dining Set"
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>

@@ -9,9 +9,11 @@ import AuthModal from './components/AuthModal';
 import ProfilePage from './components/ProfilePage';
 import SellerProfilePage from './components/SellerProfilePage';
 import AdminDashboard from './components/AdminDashboard';
+import MyListings from './components/MyListings';
 import { subscribeListings, saveListing } from './lib/storage';
 import { onAuthChange, getProfile } from './lib/auth';
 import { isSupabaseConfigured } from './lib/supabase';
+import { Toaster } from 'react-hot-toast';
 
 export default function App() {
   // --- Auth state ---
@@ -27,6 +29,7 @@ export default function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showMyListings, setShowMyListings] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [viewSellerId, setViewSellerId] = useState(null);
   const [pickMode, setPickMode] = useState(false);
@@ -88,10 +91,16 @@ export default function App() {
       }
       // Sub-category filter
       if (activeSubCategory !== 'all') {
-        if (l.mainCategory === 'real_estate' && l.propertyType !== activeSubCategory) {
-          return false;
-        }
-        if (l.mainCategory === 'vehicles' && l.vehicleType !== activeSubCategory) {
+        const itemSub = (
+          l.subCategory ||
+          l.sub_category ||
+          l.propertyType ||
+          l.property_type ||
+          l.vehicleType ||
+          l.vehicle_type ||
+          ''
+        ).toLowerCase();
+        if (itemSub !== activeSubCategory.toLowerCase()) {
           return false;
         }
       }
@@ -179,6 +188,7 @@ export default function App() {
 
   return (
     <div className="h-dvh w-screen flex flex-col overflow-hidden bg-gray-100">
+      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
       {/* Local Preview Mode Banner (slim) */}
       {!isSupabaseConfigured && !bannerDismissed && (
         <div className="bg-amber-50 border-b border-amber-200/80 px-4 py-1.5 flex items-center justify-between text-[11px] text-amber-900 z-[1002] shrink-0">
@@ -205,12 +215,12 @@ export default function App() {
           <div className="flex items-center gap-2.5">
             <img
               src="/pin-logo.svg"
-              alt="PinLanka Logo"
+              alt="Selinmap Logo"
               className="w-8 h-8 object-contain shrink-0"
             />
             <div className="flex items-baseline gap-1.5">
               <h1 className="text-lg font-black text-gray-900 tracking-tight">
-                Pin<span className="text-emerald-600">Lanka</span>
+                Selin<span className="text-emerald-600">map</span>
               </h1>
               <span className="hidden sm:inline-block text-[11px] font-semibold text-gray-400 border-l border-gray-200 pl-2 uppercase tracking-wider">
                 Marketplace
@@ -227,13 +237,23 @@ export default function App() {
                     window.history.pushState(null, '', '/admin');
                   }
                 }}
-                className="flex items-center gap-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 px-3 py-1.5 rounded-full shadow-xs transition-all"
+                className="flex items-center gap-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 px-3 py-1.5 rounded-full shadow-xs transition-all cursor-pointer"
                 title="Admin Dashboard"
               >
                 <Shield size={14} className="text-slate-950" />
                 <span className="hidden sm:inline">Admin</span>
               </button>
             )}
+
+            {/* My Ads & Golden Pins Button */}
+            <button
+              onClick={() => setShowMyListings(true)}
+              className="flex items-center gap-1.5 text-xs font-bold text-amber-950 bg-gradient-to-r from-amber-100 to-yellow-100 hover:from-amber-200 hover:to-yellow-200 border border-amber-300/80 px-3 py-1.5 rounded-full shadow-xs active:scale-95 transition-all cursor-pointer"
+              title="My Ads & Golden Pins"
+            >
+              <span>⭐</span>
+              <span className="hidden xs:inline">My Ads</span>
+            </button>
 
             {user ? (
               <button
@@ -256,7 +276,7 @@ export default function App() {
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-gray-950 px-3 py-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-gray-950 px-3 py-1.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
               >
                 <LogIn size={15} />
                 <span>Login</span>
@@ -265,7 +285,7 @@ export default function App() {
 
             <button
               onClick={handleAddClick}
-              className="flex items-center gap-1.5 bg-gray-950 hover:bg-gray-800 active:scale-95 text-white text-xs font-bold px-3.5 py-1.5 rounded-full shadow-xs hover:shadow transition-all"
+              className="flex items-center gap-1.5 bg-gray-950 hover:bg-gray-800 active:scale-95 text-white text-xs font-bold px-3.5 py-1.5 rounded-full shadow-xs hover:shadow transition-all cursor-pointer"
             >
               <Plus size={15} />
               <span>Post Ad</span>
@@ -378,6 +398,28 @@ export default function App() {
           onBack={() => setShowProfile(false)}
           onSignOut={handleSignOut}
           onProfileUpdate={(updated) => setProfile(updated)}
+          onOpenMyListings={() => {
+            setShowProfile(false);
+            setShowMyListings(true);
+          }}
+        />
+      )}
+
+      {/* My Listings & Golden Pins Dashboard */}
+      {showMyListings && (
+        <MyListings
+          user={user}
+          listings={listings}
+          onBack={() => setShowMyListings(false)}
+          onSelectListing={(listing) => {
+            setShowMyListings(false);
+            setSelectedListing(listing);
+            setViewMode('map');
+          }}
+          onPostAd={() => {
+            setShowMyListings(false);
+            handleAddClick();
+          }}
         />
       )}
 

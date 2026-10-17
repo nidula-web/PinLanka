@@ -1,11 +1,13 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const LOCAL_STORAGE_KEY = 'pinlanka_marketplace_listings';
+const LOCAL_STORAGE_KEY = 'selinmap_marketplace_listings';
+const LEGACY_STORAGE_KEY = 'pinlanka_marketplace_listings';
 
 export const CATEGORY_EMOJIS = {
   real_estate: '🏠',
   vehicles: '🚗',
   electronics: '📱',
+  services: '🛠️',
   others: '📦',
 };
 
@@ -13,6 +15,7 @@ export const CATEGORY_LABELS = {
   real_estate: 'Real Estate',
   vehicles: 'Vehicles',
   electronics: 'Electronics',
+  services: 'Services',
   others: 'Others',
 };
 
@@ -20,8 +23,10 @@ export const CATEGORY_LABELS = {
 export const SEED_LISTINGS = [
   {
     id: 'seed-1',
+    isPremium: true,
     mainCategory: 'real_estate',
     propertyType: 'apartment',
+    subCategory: 'apartment',
     title: 'Luxury 3-Bed Penthouse with City Views',
     price: 85000000,
     priceTag: '85M',
@@ -43,8 +48,10 @@ export const SEED_LISTINGS = [
   },
   {
     id: 'seed-2',
+    isPremium: true,
     mainCategory: 'vehicles',
     vehicleType: 'car',
+    subCategory: 'car',
     brand: 'Toyota',
     year: '2021',
     mileage: '38,000 km',
@@ -208,6 +215,29 @@ export const SEED_LISTINGS = [
     ],
     createdAt: Date.now() - 1000 * 60 * 60 * 120,
   },
+  {
+    id: 'seed-9',
+    isPremium: false,
+    mainCategory: 'services',
+    subCategory: 'home_construction',
+    title: 'Architectural House Plans & 3D Interior Design',
+    price: 75000,
+    priceTag: '75k',
+    locationName: 'High Level Road, Nugegoda',
+    lat: 6.8649,
+    lng: 79.8997,
+    description:
+      'Chartered architect consultation, municipality approval drawings, structural engineering plans, and photorealistic 3D interior/exterior rendering.',
+    sellerId: 'seller_nugegoda_arch',
+    sellerName: 'Lanka Blueprint Studio',
+    sellerPhone: '+94775551234',
+    sellerType: 'broker',
+    isVerified: true,
+    imageUrls: [
+      'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80',
+    ],
+    createdAt: Date.now() - 1000 * 60 * 60 * 15,
+  },
 ];
 
 // Helper to normalize Supabase SQL columns into camelCase format
@@ -216,8 +246,10 @@ export function normalizeListing(row) {
   return {
     id: row.id,
     mainCategory: row.main_category || row.mainCategory || 'others',
-    propertyType: row.property_type || row.propertyType || '',
-    vehicleType: row.vehicle_type || row.vehicleType || '',
+    subCategory: row.sub_category || row.subCategory || row.property_type || row.vehicle_type || '',
+    propertyType: row.property_type || row.propertyType || row.sub_category || '',
+    vehicleType: row.vehicle_type || row.vehicleType || row.sub_category || '',
+    isPremium: Boolean(row.is_premium || row.isPremium),
     title: row.title || '',
     price: Number(row.price) || 0,
     priceTag: row.price_tag || row.priceTag || '',
@@ -251,7 +283,10 @@ const listeners = new Set();
 
 function getStoredLocalListings() {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    let raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!raw) {
+      raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    }
     if (!raw) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(SEED_LISTINGS));
       return SEED_LISTINGS;
@@ -349,8 +384,9 @@ export async function saveListing(listing, currentUserId) {
         price: Number(listing.price),
         price_tag: listing.priceTag || '',
         main_category: listing.mainCategory || 'others',
-        property_type: listing.propertyType || null,
-        vehicle_type: listing.vehicleType || null,
+        sub_category: listing.subCategory || listing.propertyType || listing.vehicleType || null,
+        property_type: listing.propertyType || listing.subCategory || null,
+        vehicle_type: listing.vehicleType || listing.subCategory || null,
         brand: listing.brand || null,
         year: listing.year ? String(listing.year) : null,
         mileage: listing.mileage || null,
@@ -366,6 +402,7 @@ export async function saveListing(listing, currentUserId) {
         seller_name: listing.sellerName || '',
         seller_phone: listing.sellerPhone || '',
         seller_type: listing.sellerType || 'owner',
+        is_premium: Boolean(listing.isPremium || listing.is_premium),
       };
 
       const { data, error } = await supabase
@@ -389,11 +426,71 @@ export async function saveListing(listing, currentUserId) {
   const newListing = {
     ...listing,
     id: 'local_' + Date.now(),
+    isPremium: Boolean(listing.isPremium || listing.is_premium),
     createdAt: Date.now(),
   };
   const updated = [newListing, ...current];
   saveStoredLocalListings(updated);
+  listeners.forEach((cb) => cb(updated));
   return newListing;
+}
+
+/**
+ * Update an existing listing (e.g. Upgrade to Golden Pin).
+ */
+export async function updateListing(id, updates) {
+  const current = getStoredLocalListings();
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const payload = {};
+      if (updates.isPremium !== undefined) payload.is_premium = Boolean(updates.isPremium);
+      if (updates.is_premium !== undefined) payload.is_premium = Boolean(updates.is_premium);
+      if (updates.title !== undefined) payload.title = updates.title;
+      if (updates.price !== undefined) payload.price = Number(updates.price);
+      if (updates.priceTag !== undefined) payload.price_tag = updates.priceTag;
+      if (updates.description !== undefined) payload.description = updates.description;
+      if (updates.subCategory !== undefined) payload.sub_category = updates.subCategory;
+      if (updates.brand !== undefined) payload.brand = updates.brand;
+      if (updates.model !== undefined) payload.model = updates.model;
+
+      const { data, error } = await supabase
+        .from('listings')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (!error && data) {
+        const normalized = normalizeListing(data);
+        const updated = current.map((l) => (l.id === id ? { ...l, ...normalized } : l));
+        saveStoredLocalListings(updated);
+        listeners.forEach((cb) => cb(updated));
+        return normalized;
+      }
+    } catch (err) {
+      console.warn('Supabase updateListing error, updating locally:', err);
+    }
+  }
+
+  // Local mode update
+  const updated = current.map((l) =>
+    l.id === id
+      ? {
+          ...l,
+          ...updates,
+          isPremium:
+            updates.isPremium !== undefined
+              ? Boolean(updates.isPremium)
+              : updates.is_premium !== undefined
+              ? Boolean(updates.is_premium)
+              : Boolean(l.isPremium),
+        }
+      : l
+  );
+  saveStoredLocalListings(updated);
+  listeners.forEach((cb) => cb(updated));
+  return updated.find((l) => l.id === id);
 }
 
 /**
@@ -411,4 +508,5 @@ export async function deleteListing(id) {
   const current = getStoredLocalListings();
   const updated = current.filter((l) => l.id !== id);
   saveStoredLocalListings(updated);
+  listeners.forEach((cb) => cb(updated));
 }

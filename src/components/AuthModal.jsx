@@ -126,8 +126,8 @@ export default function AuthModal({ open, onClose, onAuth }) {
               </h2>
               <p className="text-xs text-gray-500 mt-0.5 font-medium">
                 {mode === 'login'
-                  ? 'Sign in to access your PinLanka listings'
-                  : 'Join PinLanka to list items & manage ads'}
+                  ? 'Sign in to access your Selinmap listings'
+                  : 'Join Selinmap to list items & manage ads'}
               </p>
             </div>
             <button

@@ -229,7 +229,7 @@ export default function AdminDashboard({
       {
         id: user?.id || 'admin_user',
         name: profile?.name || user?.email?.split('@')[0] || 'Platform Owner',
-        email: user?.email || 'admin@pinlanka.lk',
+        email: user?.email || 'admin@selinmap.lk',
         phone: profile?.phone || '+94770000001',
         userType: 'owner',
         is_verified: true,
@@ -439,7 +439,7 @@ export default function AdminDashboard({
         </h1>
 
         <p className="text-sm sm:text-base text-slate-400 max-w-md mb-6 leading-relaxed">
-          You do not have administrative privileges to view this portal. Only authorized platform owners and staff can access the PinLanka Admin Console.
+          You do not have administrative privileges to view this portal. Only authorized platform owners and staff can access the Selinmap Admin Console.
         </p>
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 max-w-md w-full mb-6 text-left">
@@ -494,12 +494,12 @@ export default function AdminDashboard({
           <div className="flex items-center gap-3">
             <img
               src="/pin-logo.svg"
-              alt="PinLanka Logo"
+              alt="Selinmap Logo"
               className="w-8 h-8 object-contain shrink-0"
             />
             <div>
               <h2 className="text-sm font-black text-white tracking-tight leading-none">
-                Pin<span className="text-emerald-400">Lanka</span>
+                Selin<span className="text-emerald-400">map</span>
               </h2>
               <span className="text-[10px] font-bold tracking-wider uppercase text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded mt-1 inline-block">
                 Owner Console

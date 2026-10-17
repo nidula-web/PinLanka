@@ -24,16 +24,45 @@ const CATEGORY_ICONS = {
   real_estate: '🏠',
   vehicles: '🚗',
   electronics: '📱',
+  services: '🛠️',
   others: '📦',
 };
 
-// --- Price bubble marker factory with category emoji & verified broker badge ---
-function createPriceBubble(priceTag, sellerType, mainCategory, isVerified) {
-  const bg = sellerType === 'owner' ? '#16a34a' : '#2563eb'; // green for owner, blue for broker/dealer
+// --- Price bubble marker factory with category emoji, verified broker badge & Golden Pin ---
+function createPriceBubble(priceTag, sellerType, mainCategory, isVerified, isPremium) {
   const icon = CATEGORY_ICONS[mainCategory] || '📦';
   const verifiedBadge = (sellerType === 'broker' && isVerified)
     ? `<span title="Verified Broker" style="display:inline-flex;align-items:center;margin-left:2px;font-size:11px;">🛡️</span>`
     : '';
+
+  if (isPremium) {
+    // Rich Golden Pin styling with glowing pulse animation & star
+    return L.divIcon({
+      className: 'golden-pin-marker',
+      html: `<div style="
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+        color: #78350f;
+        font-weight: 800;
+        font-size: 12px;
+        padding: 4.5px 10px;
+        border-radius: 20px;
+        white-space: nowrap;
+        box-shadow: 0 0 14px rgba(245, 158, 11, 0.9), 0 3px 8px rgba(0,0,0,.35);
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border: 2px solid #fff;
+        line-height: 1.3;
+        transform: translate(-50%,-50%);
+        cursor: pointer;
+        animation: goldenGlowPulse 2s infinite ease-in-out;
+      "><span>⭐</span><span>${icon}</span><span style="font-weight:900;letter-spacing:-0.2px;">Rs ${priceTag}</span>${verifiedBadge}</div>`,
+      iconSize: [0, 0],
+      iconAnchor: [0, 0],
+    });
+  }
+
+  const bg = sellerType === 'owner' ? '#16a34a' : '#2563eb'; // green for owner, blue for broker/dealer
 
   return L.divIcon({
     className: '',
@@ -178,11 +207,13 @@ export default function MapPage({
           <Marker
             key={listing.id}
             position={[listing.lat, listing.lng]}
+            zIndexOffset={listing.isPremium ? 4999 : 0}
             icon={createPriceBubble(
               listing.priceTag,
               listing.sellerType,
               listing.mainCategory,
-              listing.isVerified
+              listing.isVerified,
+              listing.isPremium
             )}
             eventHandlers={{
               click: () => onMarkerClick(listing),

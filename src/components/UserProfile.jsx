@@ -22,7 +22,7 @@ const USER_TYPES = [
   { key: 'dealer', label: 'Dealership', desc: 'Commercial dealer' },
 ];
 
-export default function UserProfile({ user, onBack, onSignOut, onProfileUpdate }) {
+export default function UserProfile({ user, onBack, onSignOut, onProfileUpdate, onOpenMyListings }) {
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -405,11 +405,36 @@ export default function UserProfile({ user, onBack, onSignOut, onProfileUpdate }
           </div>
         </form>
 
+        {/* Manage My Ads Card */}
+        {onOpenMyListings && (
+          <div className="mt-6 bg-gradient-to-r from-amber-50 to-yellow-50/60 rounded-3xl p-4 shadow-sm border border-amber-200/70 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                <span>⭐</span>
+                <span>My Ads & Golden Pins</span>
+              </p>
+              <p className="text-[11px] text-amber-800">
+                Manage your listings & upgrade them to Golden Pins
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onBack();
+                onOpenMyListings();
+              }}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-950 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 active:scale-95 px-3.5 py-2 rounded-xl shadow-xs transition-all cursor-pointer"
+            >
+              <span>Manage Ads</span>
+            </button>
+          </div>
+        )}
+
         {/* Sign Out Card */}
         <div className="mt-6 bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-gray-800">Account Session</p>
-            <p className="text-[11px] text-gray-500">Sign out of your PinLanka account</p>
+            <p className="text-[11px] text-gray-500">Sign out of your Selinmap account</p>
           </div>
           <button
             type="button"

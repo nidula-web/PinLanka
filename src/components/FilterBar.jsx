@@ -6,6 +6,7 @@ const MAIN_CATEGORIES = [
   { key: 'real_estate', label: 'Real Estate', icon: '🏠' },
   { key: 'vehicles', label: 'Vehicles', icon: '🚗' },
   { key: 'electronics', label: 'Electronics', icon: '📱' },
+  { key: 'services', label: 'Services', icon: '🛠️' },
   { key: 'others', label: 'Others', icon: '📦' },
 ];
 
@@ -16,6 +17,7 @@ const SUB_CATEGORIES = {
     { key: 'house', label: 'House' },
     { key: 'apartment', label: 'Apartment' },
     { key: 'commercial', label: 'Commercial' },
+    { key: 'villa', label: 'Villa' },
   ],
   vehicles: [
     { key: 'all', label: 'All Vehicles' },
@@ -23,6 +25,24 @@ const SUB_CATEGORIES = {
     { key: 'bike', label: 'Bikes' },
     { key: 'van', label: 'Vans' },
     { key: 'tuk', label: 'Three Wheelers' },
+    { key: 'suv', label: 'SUVs & Jeeps' },
+    { key: 'lorry', label: 'Lorries & Trucks' },
+  ],
+  electronics: [
+    { key: 'all', label: 'All Electronics' },
+    { key: 'mobile', label: 'Mobile Phones' },
+    { key: 'laptop', label: 'Laptops & PCs' },
+    { key: 'tv', label: 'TVs & Audio' },
+    { key: 'camera', label: 'Cameras' },
+    { key: 'tablet', label: 'Tablets' },
+  ],
+  services: [
+    { key: 'all', label: 'All Services' },
+    { key: 'home_construction', label: 'Construction' },
+    { key: 'vehicle_repair', label: 'Auto Repair' },
+    { key: 'it_services', label: 'IT & Web' },
+    { key: 'cleaning', label: 'Cleaning' },
+    { key: 'tuition', label: 'Tuition' },
   ],
 };
 

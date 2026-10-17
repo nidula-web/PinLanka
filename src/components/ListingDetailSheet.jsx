@@ -283,7 +283,7 @@ export default function ListingDetailSheet({
 
   const phone = listing.sellerPhone || listing.phone || '';
   const waText = encodeURIComponent(
-    `Hi, I'm interested in "${listing.title}" on PinLanka`
+    `Hi, I'm interested in "${listing.title}" on Selinmap`
   );
   const waLink = `https://wa.me/${phone}?text=${waText}`;
   const callLink = `tel:${phone}`;

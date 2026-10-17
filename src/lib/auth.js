@@ -300,7 +300,7 @@ export async function createProfileIfMissing(userId, email) {
   if (!existing) {
     return createUserProfile(userId, {
       email,
-      name: email ? email.split('@')[0] : 'PinLanka User',
+      name: email ? email.split('@')[0] : 'Selinmap User',
       phone: '',
       userType: 'owner',
     });
