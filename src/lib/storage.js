@@ -250,6 +250,8 @@ export function normalizeListing(row) {
     propertyType: row.property_type || row.propertyType || row.sub_category || '',
     vehicleType: row.vehicle_type || row.vehicleType || row.sub_category || '',
     isPremium: Boolean(row.is_premium || row.isPremium),
+    premiumStatus: row.premium_status || row.premiumStatus || '',
+    paymentSlipUrl: row.payment_slip_url || row.paymentSlipUrl || '',
     title: row.title || '',
     price: Number(row.price) || 0,
     priceTag: row.price_tag || row.priceTag || '',
@@ -446,13 +448,39 @@ export async function updateListing(id, updates) {
       const payload = {};
       if (updates.isPremium !== undefined) payload.is_premium = Boolean(updates.isPremium);
       if (updates.is_premium !== undefined) payload.is_premium = Boolean(updates.is_premium);
+      if (updates.premiumStatus !== undefined) payload.premium_status = updates.premiumStatus;
+      if (updates.premium_status !== undefined) payload.premium_status = updates.premium_status;
+      if (updates.paymentSlipUrl !== undefined) payload.payment_slip_url = updates.paymentSlipUrl;
+      if (updates.payment_slip_url !== undefined) payload.payment_slip_url = updates.payment_slip_url;
+
       if (updates.title !== undefined) payload.title = updates.title;
       if (updates.price !== undefined) payload.price = Number(updates.price);
       if (updates.priceTag !== undefined) payload.price_tag = updates.priceTag;
+      if (updates.price_tag !== undefined) payload.price_tag = updates.price_tag;
       if (updates.description !== undefined) payload.description = updates.description;
+      if (updates.mainCategory !== undefined) payload.main_category = updates.mainCategory;
+      if (updates.main_category !== undefined) payload.main_category = updates.main_category;
       if (updates.subCategory !== undefined) payload.sub_category = updates.subCategory;
+      if (updates.sub_category !== undefined) payload.sub_category = updates.sub_category;
+      if (updates.propertyType !== undefined) payload.property_type = updates.propertyType;
+      if (updates.vehicleType !== undefined) payload.vehicle_type = updates.vehicleType;
       if (updates.brand !== undefined) payload.brand = updates.brand;
       if (updates.model !== undefined) payload.model = updates.model;
+      if (updates.year !== undefined) payload.year = updates.year;
+      if (updates.mileage !== undefined) payload.mileage = updates.mileage;
+      if (updates.transmission !== undefined) payload.transmission = updates.transmission;
+      if (updates.condition !== undefined) payload.condition = updates.condition;
+      if (updates.size !== undefined) payload.size = updates.size;
+      if (updates.locationName !== undefined) payload.location_name = updates.locationName;
+      if (updates.location_name !== undefined) payload.location_name = updates.location_name;
+      if (updates.lat !== undefined) payload.lat = Number(updates.lat);
+      if (updates.lng !== undefined) payload.lng = Number(updates.lng);
+      if (updates.imageUrls !== undefined) payload.image_urls = updates.imageUrls;
+      if (updates.image_urls !== undefined) payload.image_urls = updates.image_urls;
+      if (updates.sellerPhone !== undefined) payload.seller_phone = updates.sellerPhone;
+      if (updates.seller_phone !== undefined) payload.seller_phone = updates.seller_phone;
+      if (updates.sellerType !== undefined) payload.seller_type = updates.sellerType;
+      if (updates.seller_type !== undefined) payload.seller_type = updates.seller_type;
 
       const { data, error } = await supabase
         .from('listings')
@@ -485,6 +513,18 @@ export async function updateListing(id, updates) {
               : updates.is_premium !== undefined
               ? Boolean(updates.is_premium)
               : Boolean(l.isPremium),
+          premiumStatus:
+            updates.premiumStatus !== undefined
+              ? updates.premiumStatus
+              : updates.premium_status !== undefined
+              ? updates.premium_status
+              : l.premiumStatus,
+          paymentSlipUrl:
+            updates.paymentSlipUrl !== undefined
+              ? updates.paymentSlipUrl
+              : updates.payment_slip_url !== undefined
+              ? updates.payment_slip_url
+              : l.paymentSlipUrl,
         }
       : l
   );

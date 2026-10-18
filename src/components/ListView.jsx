@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { MapPin, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { getOptimizedImageUrl } from '../utils/cloudinary';
 
@@ -16,6 +17,15 @@ const CATEGORY_NAMES = {
 };
 
 export default function ListView({ listings, onListingClick }) {
+  const sortedListings = useMemo(() => {
+    return [...listings].sort((a, b) => {
+      const aPrem = Boolean(a.is_premium || a.isPremium);
+      const bPrem = Boolean(b.is_premium || b.isPremium);
+      if (aPrem === bPrem) return 0;
+      return aPrem ? -1 : 1;
+    });
+  }, [listings]);
+
   if (listings.length === 0) {
     return (
       <div className="h-full overflow-y-auto px-4 py-16 flex flex-col items-center justify-center text-center bg-gray-50/70">
@@ -38,14 +48,15 @@ export default function ListView({ listings, onListingClick }) {
         {/* Results Header */}
         <div className="flex items-center justify-between mb-4 px-0.5">
           <p className="text-xs font-bold uppercase tracking-wider text-gray-500">
-            Showing <span className="text-gray-900">{listings.length}</span>{' '}
-            {listings.length === 1 ? 'Listing' : 'Listings'}
+            Showing <span className="text-gray-900">{sortedListings.length}</span>{' '}
+            {sortedListings.length === 1 ? 'Listing' : 'Listings'}
           </p>
         </div>
 
         {/* Responsive Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {listings.map((item) => {
+          {sortedListings.map((item) => {
+            const isPremium = Boolean(item.is_premium || item.isPremium);
             const hasImage = item.imageUrls && item.imageUrls.length > 0;
             const catIcon = CATEGORY_ICONS[item.mainCategory] || '📦';
             const isOwner = item.sellerType === 'owner';
@@ -54,7 +65,11 @@ export default function ListView({ listings, onListingClick }) {
               <div
                 key={item.id}
                 onClick={() => onListingClick(item)}
-                className="bg-white rounded-2xl overflow-hidden shadow-xs hover:shadow-md border border-gray-200/70 transition-all duration-200 text-left flex flex-col group cursor-pointer active:scale-[0.99]"
+                className={`rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-200 text-left flex flex-col group cursor-pointer active:scale-[0.99] ${
+                  isPremium
+                    ? 'bg-yellow-50 border-2 border-yellow-400 shadow-amber-200/50'
+                    : 'bg-white border border-gray-200/70 hover:border-gray-300'
+                }`}
               >
                 {/* Thumbnail Container */}
                 <div className="relative w-full aspect-[4/3] bg-gray-200 overflow-hidden">
@@ -73,7 +88,12 @@ export default function ListView({ listings, onListingClick }) {
                   )}
 
                   {/* Badges on image */}
-                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
+                    {isPremium && (
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-amber-950 flex items-center gap-1 border border-yellow-300">
+                        ⭐ Premium
+                      </span>
+                    )}
                     <span
                       className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs backdrop-blur-md flex items-center gap-1 ${
                         isOwner
@@ -114,8 +134,9 @@ export default function ListView({ listings, onListingClick }) {
                   <div>
                     {/* Price & PriceTag */}
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-lg font-black text-gray-950 tracking-tight">
-                        Rs {item.price?.toLocaleString()}
+                      <span className="text-lg font-black text-gray-950 tracking-tight flex items-center gap-1">
+                        {isPremium && <span className="text-amber-500 text-sm">⭐</span>}
+                        <span>Rs {item.price?.toLocaleString()}</span>
                       </span>
                       {item.priceTag && (
                         <span className="text-[11px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md shrink-0">

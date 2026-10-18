@@ -14,8 +14,12 @@ import { subscribeListings, saveListing } from './lib/storage';
 import { onAuthChange, getProfile } from './lib/auth';
 import { isSupabaseConfigured } from './lib/supabase';
 import { Toaster } from 'react-hot-toast';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // --- Auth state ---
   const [user, setUser] = useState(null); // Supabase user
   const [profile, setProfile] = useState(null); // Supabase profile
@@ -42,21 +46,14 @@ export default function App() {
 
   const pickCallbackRef = useRef(null);
 
-  // --- Check for /admin URL route ---
+  // --- Check for /admin or /login URL routes ---
   useEffect(() => {
-    const checkPath = () => {
-      if (
-        window.location.pathname === '/admin' ||
-        window.location.pathname.startsWith('/admin') ||
-        window.location.hash === '#admin'
-      ) {
-        setShowAdmin(true);
-      }
-    };
-    checkPath();
-    window.addEventListener('popstate', checkPath);
-    return () => window.removeEventListener('popstate', checkPath);
-  }, []);
+    if (location.pathname === '/login') {
+      setShowAuthModal(true);
+    } else if (location.pathname === '/admin' || location.pathname.startsWith('/admin')) {
+      setShowAdmin(true);
+    }
+  }, [location.pathname]);
 
   // --- Listen to auth state ---
   useEffect(() => {
@@ -387,8 +384,18 @@ export default function App() {
       {/* Auth modal */}
       <AuthModal
         open={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onAuth={handleAuth}
+        onClose={() => {
+          setShowAuthModal(false);
+          if (location.pathname === '/login') {
+            navigate('/', { replace: true });
+          }
+        }}
+        onAuth={(fbUser) => {
+          handleAuth(fbUser);
+          if (location.pathname === '/login') {
+            navigate('/', { replace: true });
+          }
+        }}
       />
 
       {/* Profile page */}

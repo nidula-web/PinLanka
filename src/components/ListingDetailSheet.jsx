@@ -15,8 +15,12 @@ import {
   ShieldCheck,
   Loader2,
   AlertCircle,
+  Sparkles,
 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import ImageCarousel from './ImageCarousel';
+import PremiumUpgradeModal from './PremiumUpgradeModal';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { getProfile } from '../lib/auth';
 import { Helmet } from 'react-helmet-async';
@@ -275,13 +279,23 @@ function FinancialCalculator({ listing }) {
 }
 
 export default function ListingDetailSheet({
-  listing,
+  listing: initialListing,
   onClose,
   onViewSeller,
   user,
   profile,
 }) {
-  if (!listing) return null;
+  if (!initialListing) return null;
+
+  const navigate = useNavigate();
+  const [currentListing, setCurrentListing] = useState(initialListing);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  useEffect(() => {
+    setCurrentListing(initialListing);
+  }, [initialListing]);
+
+  const listing = currentListing || initialListing;
 
   const phone = listing.sellerPhone || listing.phone || '';
   const waText = encodeURIComponent(
@@ -443,11 +457,25 @@ export default function ListingDetailSheet({
         onClick={onClose}
       />
 
-      {/* Bottom Sheet */}
-      <div className="fixed bottom-0 left-0 right-0 z-[2001] bg-white rounded-t-3xl shadow-2xl max-h-[88vh] overflow-y-auto animate-slide-up">
+      {/* Bottom Sheet with Swipe-to-Dismiss */}
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+        drag="y"
+        dragConstraints={{ top: 0 }}
+        dragElastic={{ top: 0, bottom: 0.6 }}
+        onDragEnd={(e, info) => {
+          if (info.offset.y > 100 || info.velocity.y > 400) {
+            onClose();
+          }
+        }}
+        className="fixed bottom-0 left-0 right-0 z-[2001] bg-white rounded-t-3xl shadow-2xl max-h-[88vh] overflow-y-auto touch-pan-y"
+      >
         {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+        <div className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing select-none">
+          <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
         </div>
 
         <div className="px-5 pb-6">
@@ -483,13 +511,14 @@ export default function ListingDetailSheet({
             <button
               onClick={onClose}
               className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 shrink-0"
+              title="Close details"
             >
               <X size={20} />
             </button>
           </div>
 
           {/* Price & Smart Price Metrics */}
-          <div className="flex flex-wrap items-baseline gap-2.5 mb-4">
+          <div className="flex flex-wrap items-baseline gap-2.5 mb-3">
             <span className="text-2xl font-black text-gray-950">
               Rs {listing.price?.toLocaleString()}
             </span>
@@ -500,6 +529,38 @@ export default function ListingDetailSheet({
               </span>
             )}
           </div>
+
+          {/* Golden Pin Upgrade Banner */}
+          {!listing.isPremium && !listing.is_premium && (
+            <div className="mb-4 p-3 bg-gradient-to-r from-amber-500/10 via-yellow-400/15 to-amber-500/10 border border-amber-300/80 rounded-2xl flex items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-amber-950 flex items-center justify-center font-bold text-base shadow-xs shrink-0">
+                  ⭐
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black text-amber-950 truncate">
+                    Stand out with a Golden Pin
+                  </p>
+                  <p className="text-[11px] text-amber-800 font-medium truncate">
+                    Top z-index priority & glowing gold marker
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!user) {
+                    navigate('/login');
+                  } else {
+                    setShowUpgradeModal(true);
+                  }
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 active:scale-95 text-amber-950 font-black text-xs shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
+              >
+                🌟 Upgrade
+              </button>
+            </div>
+          )}
 
           {/* Dynamic Specs Section based on mainCategory */}
           {listing.mainCategory === 'vehicles' && (
@@ -688,7 +749,7 @@ export default function ListingDetailSheet({
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Broker Introduction Agreement Modal (Digital Handshake) */}
       {showBrokerModal && isBroker && (
@@ -824,6 +885,23 @@ export default function ListingDetailSheet({
             </div>
           </div>
         </>
+      )}
+
+      {/* Premium Upgrade Modal */}
+      {showUpgradeModal && (
+        <PremiumUpgradeModal
+          open={showUpgradeModal}
+          listing={listing}
+          onClose={() => setShowUpgradeModal(false)}
+          onUpgradeSuccess={(updated) => {
+            setCurrentListing((prev) => ({
+              ...prev,
+              ...updated,
+              isPremium: true,
+              is_premium: true,
+            }));
+          }}
+        />
       )}
     </>
   );
