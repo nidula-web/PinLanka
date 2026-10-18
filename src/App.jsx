@@ -14,7 +14,8 @@ import { subscribeListings, saveListing } from './lib/storage';
 import { onAuthChange, getProfile } from './lib/auth';
 import { isSupabaseConfigured } from './lib/supabase';
 import { Toaster } from 'react-hot-toast';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import AdminRoute from './components/AdminRoute';
 
 export default function App() {
   const navigate = useNavigate();
@@ -34,7 +35,6 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showMyListings, setShowMyListings] = useState(false);
-  const [showAdmin, setShowAdmin] = useState(false);
   const [viewSellerId, setViewSellerId] = useState(null);
   const [pickMode, setPickMode] = useState(false);
   const [viewMode, setViewMode] = useState('map'); // 'map' | 'list'
@@ -46,14 +46,12 @@ export default function App() {
 
   const pickCallbackRef = useRef(null);
 
-  // --- Check for /admin or /login URL routes ---
+  // --- Check for /login URL route ---
   useEffect(() => {
-    if (location.pathname === '/login') {
+    if (location.pathname === '/login' && !user) {
       setShowAuthModal(true);
-    } else if (location.pathname === '/admin' || location.pathname.startsWith('/admin')) {
-      setShowAdmin(true);
     }
-  }, [location.pathname]);
+  }, [location.pathname, user]);
 
   // --- Listen to auth state ---
   useEffect(() => {
@@ -184,8 +182,32 @@ export default function App() {
   };
 
   return (
-    <div className="h-dvh w-screen flex flex-col overflow-hidden bg-gray-100">
-      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+    <Routes>
+      {/* Protected Admin Route */}
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute user={user} profile={profile}>
+            <AdminDashboard
+              user={user}
+              profile={profile}
+              onBack={() => navigate('/')}
+              onSelectListing={(listing) => {
+                navigate('/');
+                setSelectedListing(listing);
+                setViewMode('map');
+              }}
+            />
+          </AdminRoute>
+        }
+      />
+
+      {/* Main Marketplace */}
+      <Route
+        path="*"
+        element={
+          <div className="h-dvh w-screen flex flex-col overflow-hidden bg-gray-100">
+            <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
       {/* Local Preview Mode Banner (slim) */}
       {!isSupabaseConfigured && !bannerDismissed && (
         <div className="bg-amber-50 border-b border-amber-200/80 px-4 py-1.5 flex items-center justify-between text-[11px] text-amber-900 z-[1002] shrink-0">
@@ -228,17 +250,11 @@ export default function App() {
           <div className="flex items-center gap-2">
             {Boolean(profile?.is_admin || user?.user_metadata?.is_admin || user?.is_admin) && (
               <button
-                onClick={() => {
-                  setShowAdmin(true);
-                  if (window.location.pathname !== '/admin') {
-                    window.history.pushState(null, '', '/admin');
-                  }
-                }}
-                className="flex items-center gap-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 px-3 py-1.5 rounded-full shadow-xs transition-all cursor-pointer"
+                onClick={() => navigate('/admin')}
+                className="flex items-center gap-1.5 text-xs font-black bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 active:scale-95 text-amber-950 px-3 py-1.5 rounded-full shadow-xs border border-amber-300 transition-all cursor-pointer"
                 title="Admin Dashboard"
               >
-                <Shield size={14} className="text-slate-950" />
-                <span className="hidden sm:inline">Admin</span>
+                <span>👑 Admin Panel</span>
               </button>
             )}
 
@@ -439,27 +455,9 @@ export default function App() {
         />
       )}
 
-      {/* Admin Dashboard */}
-      {showAdmin && (
-        <AdminDashboard
-          user={user}
-          profile={profile}
-          onBack={() => {
-            setShowAdmin(false);
-            if (window.location.pathname === '/admin') {
-              window.history.pushState(null, '', '/');
-            }
-          }}
-          onSelectListing={(listing) => {
-            setShowAdmin(false);
-            setSelectedListing(listing);
-            setViewMode('map');
-            if (window.location.pathname === '/admin') {
-              window.history.pushState(null, '', '/');
-            }
-          }}
-        />
-      )}
-    </div>
+          </div>
+        }
+      />
+    </Routes>
   );
 }

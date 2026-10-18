@@ -14,1176 +14,888 @@ import {
   CheckCircle2,
   XCircle,
   Phone,
-  MessageCircle,
+  Mail,
   Clock,
   Layers,
   Filter,
   AlertTriangle,
   Loader2,
   Sparkles,
+  Maximize2,
+  Eye,
+  Check,
+  X,
+  FileCheck,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { deleteListing, SEED_LISTINGS } from '../lib/storage';
+import { updateListing, deleteListing, SEED_LISTINGS } from '../lib/storage';
+import { getOptimizedImageUrl } from '../utils/cloudinary';
+
+const CATEGORY_ICONS = {
+  real_estate: '🏠',
+  vehicles: '🚗',
+  electronics: '📱',
+  services: '🛠️',
+  others: '📦',
+};
 
 export default function AdminDashboard({
   user,
   profile,
   onBack,
   onSelectListing,
-  onAdminProfileUpdated,
 }) {
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'listings' | 'users'
+  const navigate = useNavigate();
+
+  // Navigation tabs
+  const [activeTab, setActiveTab] = useState('approvals'); // 'approvals' | 'overview' | 'listings' | 'users'
   const [loading, setLoading] = useState(true);
-  const [isAuthorized, setIsAuthorized] = useState(null); // null = checking, true, false
+  const [refreshing, setRefreshing] = useState(false);
 
   // Data states
-  const [listings, setListings] = useState([]);
+  const [allListings, setAllListings] = useState([]);
+  const [pendingListings, setPendingListings] = useState([]);
   const [usersList, setUsersList] = useState([]);
-  const [inquiries, setInquiries] = useState([]);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalListings: 0,
+    activePremium: 0,
+    pendingApprovals: 0,
+  });
 
-  // Search & filter states
-  const [listingSearch, setListingSearch] = useState('');
-  const [listingCategoryFilter, setListingCategoryFilter] = useState('all');
-  const [userSearch, setUserSearch] = useState('');
-  const [userRoleFilter, setUserRoleFilter] = useState('all');
+  // Modal for Viewing Full-Size Bank Slip
+  const [selectedSlipListing, setSelectedSlipListing] = useState(null);
+  const [actionLoadingId, setActionLoadingId] = useState(null);
 
-  // Deletion modals / confirmations
-  const [deletingListingId, setDeletingListingId] = useState(null);
-  const [deletingUserId, setDeletingUserId] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  // Search & Filter
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
 
-  // 1. Security Check on Mount
-  useEffect(() => {
-    let cancelled = false;
-
-    async function checkAdminAccess() {
-      setLoading(true);
-
-      // Check if user is logged in
-      if (!user) {
-        setIsAuthorized(false);
-        setLoading(false);
-        return;
-      }
-
-      // Check if user has admin privileges
-      if (isSupabaseConfigured && supabase) {
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('is_admin')
-            .eq('id', user.id || user.uid)
-            .maybeSingle();
-
-          if (cancelled) return;
-
-          if (data && data.is_admin === true) {
-            setIsAuthorized(true);
-            await fetchDashboardData();
-          } else if (profile?.is_admin === true || user?.user_metadata?.is_admin === true) {
-            setIsAuthorized(true);
-            await fetchDashboardData();
-          } else {
-            setIsAuthorized(false);
-          }
-        } catch (err) {
-          console.warn('Admin check error:', err);
-          if (profile?.is_admin === true) {
-            setIsAuthorized(true);
-            await fetchDashboardData();
-          } else {
-            setIsAuthorized(false);
-          }
-        }
-      } else {
-        // Local preview fallback check
-        const isLocalAdmin = Boolean(
-          profile?.is_admin ||
-          user?.is_admin ||
-          localStorage.getItem('pinlanka_demo_admin') === 'true'
-        );
-        setIsAuthorized(isLocalAdmin);
-        if (isLocalAdmin) {
-          await fetchDashboardData();
-        }
-      }
-
-      if (!cancelled) setLoading(false);
+  const handleGoBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      navigate('/');
     }
+  };
 
-    checkAdminAccess();
-    return () => {
-      cancelled = true;
-    };
-  }, [user, profile]);
-
-  // Fetch all listings, profiles, and inquiries
+  // Fetch Dashboard Data (Listings, Profiles, Stats)
   const fetchDashboardData = async () => {
-    setActionLoading(true);
+    setRefreshing(true);
     try {
       if (isSupabaseConfigured && supabase) {
         // 1. Fetch Listings
-        const { data: listingsData } = await supabase
+        const { data: listingsData, error: listingsError } = await supabase
           .from('listings')
           .select('*')
           .order('created_at', { ascending: false });
 
-        // 2. Fetch Profiles / Users
-        const { data: profilesData } = await supabase
+        // 2. Fetch Profiles
+        const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
           .select('*')
           .order('created_at', { ascending: false });
 
-        // 3. Fetch Inquiries
-        const { data: inquiriesData } = await supabase
-          .from('inquiries')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (listingsData && listingsData.length > 0) {
-          setListings(
-            listingsData.map((l) => ({
-              id: l.id,
-              title: l.title || 'Untitled',
-              price: Number(l.price) || 0,
-              priceTag: l.price_tag || '',
-              mainCategory: l.main_category || 'others',
-              propertyType: l.property_type || '',
-              vehicleType: l.vehicle_type || '',
-              sellerName: l.seller_name || 'Anonymous',
-              sellerType: l.seller_type || 'owner',
-              isVerified: Boolean(l.is_verified),
-              locationName: l.location_name || 'Sri Lanka',
-              lat: Number(l.lat) || 6.9271,
-              lng: Number(l.lng) || 79.8612,
-              imageUrls: l.image_urls || [],
-              createdAt: l.created_at || new Date().toISOString(),
-            }))
-          );
+        let currentListings = [];
+        if (listingsData && !listingsError) {
+          currentListings = listingsData;
         } else {
-          setListings(SEED_LISTINGS);
+          // Fallback to local storage if supabase empty
+          const raw = localStorage.getItem('pinlanka_marketplace_listings');
+          currentListings = raw ? JSON.parse(raw) : SEED_LISTINGS;
         }
 
-        if (profilesData && profilesData.length > 0) {
-          setUsersList(
-            profilesData.map((p) => ({
-              id: p.id,
-              name: p.full_name || p.name || 'Anonymous',
-              email: p.email || 'No email',
-              phone: p.phone || 'N/A',
-              userType: p.user_type || 'owner',
-              is_verified: Boolean(p.is_verified),
-              is_admin: Boolean(p.is_admin),
-              company: p.company || '',
-              bio: p.bio || '',
-              avatar_url: p.avatar_url || '',
-              avatarUrl: p.avatar_url || '',
-              createdAt: p.created_at || new Date().toISOString(),
-            }))
-          );
-        } else {
-          // Fallback demo users from seed listings
-          setUsersList(generateDemoUsers());
+        let currentUsers = [];
+        if (profilesData && !profilesError) {
+          currentUsers = profilesData;
         }
 
-        if (inquiriesData) {
-          setInquiries(inquiriesData);
-        }
+        setAllListings(currentListings);
+        setUsersList(currentUsers);
+
+        // Filter Pending Golden Pin Approvals
+        const pending = currentListings.filter(
+          (l) =>
+            (l.premium_status === 'pending' || l.premiumStatus === 'pending') &&
+            Boolean(l.payment_slip_url || l.paymentSlipUrl)
+        );
+        setPendingListings(pending);
+
+        // Count Active Premium
+        const activePremCount = currentListings.filter(
+          (l) => Boolean(l.is_premium || l.isPremium)
+        ).length;
+
+        setStats({
+          totalUsers: currentUsers.length || 1,
+          totalListings: currentListings.length,
+          activePremium: activePremCount,
+          pendingApprovals: pending.length,
+        });
       } else {
-        // Local preview fallback data
-        const localListingsRaw = localStorage.getItem('pinlanka_marketplace_listings');
-        const localListings = localListingsRaw ? JSON.parse(localListingsRaw) : SEED_LISTINGS;
-        setListings(localListings);
-        setUsersList(generateDemoUsers());
-        setInquiries([
-          {
-            id: 'inq-1',
-            property_id: 'seed-1',
-            broker_id: 'seller_colombo',
-            buyer_phone: '077 123 4567',
-            contact_method: 'whatsapp',
-            created_at: new Date(Date.now() - 3600000).toISOString(),
-          },
-          {
-            id: 'inq-2',
-            property_id: 'seed-2',
-            broker_id: 'seller_kandy_auto',
-            buyer_phone: '071 987 6543',
-            contact_method: 'call',
-            created_at: new Date(Date.now() - 7200000).toISOString(),
-          },
-        ]);
+        // Local Mode / Demo Data
+        const raw = localStorage.getItem('pinlanka_marketplace_listings');
+        const localListings = raw ? JSON.parse(raw) : SEED_LISTINGS;
+        setAllListings(localListings);
+
+        const pending = localListings.filter(
+          (l) =>
+            (l.premium_status === 'pending' || l.premiumStatus === 'pending') &&
+            Boolean(l.payment_slip_url || l.paymentSlipUrl)
+        );
+        setPendingListings(pending);
+
+        const activePremCount = localListings.filter(
+          (l) => Boolean(l.is_premium || l.isPremium)
+        ).length;
+
+        setStats({
+          totalUsers: 14,
+          totalListings: localListings.length,
+          activePremium: activePremCount,
+          pendingApprovals: pending.length,
+        });
       }
     } catch (err) {
-      console.warn('Dashboard data fetch error:', err);
-      toast.error('Failed to sync live data');
+      console.error('Failed to load admin dashboard data:', err);
+      toast.error('Could not refresh dashboard data.');
     } finally {
-      setActionLoading(false);
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // Helper to generate seed users if profiles table is empty
-  function generateDemoUsers() {
-    const demo = [
-      {
-        id: user?.id || 'admin_user',
-        name: profile?.name || user?.email?.split('@')[0] || 'Platform Owner',
-        email: user?.email || 'admin@selinmap.lk',
-        phone: profile?.phone || '+94770000001',
-        userType: 'owner',
-        is_verified: true,
-        is_admin: true,
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'seller_colombo',
-        name: 'Nimal Perera',
-        email: 'nimal@colomborealty.lk',
-        phone: '+94771234567',
-        userType: 'broker',
-        is_verified: true,
-        is_admin: false,
-        createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-      },
-      {
-        id: 'seller_kandy_auto',
-        name: 'Kandy Premium Auto',
-        email: 'sales@kandyauto.lk',
-        phone: '+94719876543',
-        userType: 'dealer',
-        is_verified: false,
-        is_admin: false,
-        createdAt: new Date(Date.now() - 86400000 * 8).toISOString(),
-      },
-      {
-        id: 'seller_galle_tech',
-        name: 'Sunil Wickramasinghe',
-        email: 'sunil@galleexpress.lk',
-        phone: '+94775551234',
-        userType: 'owner',
-        is_verified: false,
-        is_admin: false,
-        createdAt: new Date(Date.now() - 86400000 * 12).toISOString(),
-      },
-    ];
-    return demo;
-  }
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  // Action: Delete Listing
-  const handleDeleteListing = async (listingId) => {
-    const confirmDelete = window.confirm(
-      'Are you sure you want to permanently delete this listing? This action cannot be undone.'
-    );
-    if (!confirmDelete) return;
+  // Quick lookup map for user profiles
+  const profilesMap = useMemo(() => {
+    const map = {};
+    usersList.forEach((u) => {
+      map[u.id] = u;
+      if (u.uid) map[u.uid] = u;
+    });
+    return map;
+  }, [usersList]);
 
-    try {
-      await deleteListing(listingId);
-      setListings((prev) => prev.filter((l) => l.id !== listingId));
-      toast.success('Listing deleted successfully');
-    } catch (err) {
-      console.error('Delete listing error:', err);
-      toast.error('Failed to delete listing: ' + err.message);
-    }
-  };
-
-  // Action: Toggle Verified Status
-  const handleToggleVerified = async (targetUser) => {
-    const newStatus = !targetUser.is_verified;
+  // Handle Approve Action
+  const handleApprove = async (listingId, title) => {
+    setActionLoadingId(listingId);
     try {
       if (isSupabaseConfigured && supabase) {
-        // 1. Update profiles table
-        const { error: profError } = await supabase
-          .from('profiles')
-          .update({ is_verified: newStatus })
-          .eq('id', targetUser.id);
-
-        if (profError) throw profError;
-
-        // 2. Also update listings table so markers reflect the 🛡️ tick on map
-        await supabase
+        const { error } = await supabase
           .from('listings')
-          .update({ is_verified: newStatus })
-          .eq('user_id', targetUser.id);
-      }
+          .update({
+            is_premium: true,
+            premium_status: 'approved',
+          })
+          .eq('id', listingId);
 
-      // Update local state
-      setUsersList((prev) =>
-        prev.map((u) => (u.id === targetUser.id ? { ...u, is_verified: newStatus } : u))
-      );
-      setListings((prev) =>
-        prev.map((l) =>
-          l.sellerId === targetUser.id || l.user_id === targetUser.id
-            ? { ...l, isVerified: newStatus }
-            : l
-        )
-      );
-
-      if (newStatus) {
-        toast.success(`Broker verified! 🛡️ Added verified badge`);
-      } else {
-        toast.success(`Broker verification removed`);
-      }
-    } catch (err) {
-      console.error('Toggle verified error:', err);
-      toast.error('Failed to update verification: ' + err.message);
-    }
-  };
-
-  // Action: Delete User
-  const handleDeleteUser = async (targetUserId) => {
-    if (targetUserId === user?.id) {
-      toast.error('Cannot delete your own admin account.');
-      return;
-    }
-
-    const confirmDelete = window.confirm(
-      'Are you sure you want to delete this user profile? Their listings may be orphaned.'
-    );
-    if (!confirmDelete) return;
-
-    try {
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase.from('profiles').delete().eq('id', targetUserId);
         if (error) throw error;
       }
 
-      setUsersList((prev) => prev.filter((u) => u.id !== targetUserId));
-      toast.success('User profile removed successfully');
+      // Sync local storage
+      await updateListing(listingId, {
+        is_premium: true,
+        isPremium: true,
+        premium_status: 'approved',
+        premiumStatus: 'approved',
+      });
+
+      // Update UI state
+      setPendingListings((prev) => prev.filter((item) => item.id !== listingId));
+      setAllListings((prev) =>
+        prev.map((item) =>
+          item.id === listingId
+            ? { ...item, is_premium: true, isPremium: true, premium_status: 'approved' }
+            : item
+        )
+      );
+      setStats((prev) => ({
+        ...prev,
+        pendingApprovals: Math.max(0, prev.pendingApprovals - 1),
+        activePremium: prev.activePremium + 1,
+      }));
+
+      toast.success(`Approved Golden Pin for "${title}"!`, {
+        icon: '⭐',
+        duration: 4000,
+      });
+
+      if (selectedSlipListing?.id === listingId) {
+        setSelectedSlipListing(null);
+      }
     } catch (err) {
-      console.error('Delete user error:', err);
-      toast.error('Failed to delete user: ' + err.message);
+      console.error('Approval failed:', err);
+      toast.error('Failed to approve listing: ' + (err.message || 'Please try again.'));
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
-  // Action: View on Map
-  const handleViewOnMap = (listing) => {
-    toast.success(`Locating "${listing.title}" on map...`);
-    onSelectListing(listing);
-  };
+  // Handle Reject Action
+  const handleReject = async (listingId, title) => {
+    setActionLoadingId(listingId);
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { error } = await supabase
+          .from('listings')
+          .update({
+            is_premium: false,
+            premium_status: 'rejected',
+          })
+          .eq('id', listingId);
 
-  // Local Admin override helper for immediate preview testing
-  const grantLocalAdmin = () => {
-    localStorage.setItem('pinlanka_demo_admin', 'true');
-    setIsAuthorized(true);
-    fetchDashboardData();
-    toast.success('Local Admin privileges granted for preview testing!');
-  };
-
-  // Filtered Listings
-  const filteredListings = useMemo(() => {
-    return listings.filter((l) => {
-      const matchSearch =
-        l.title.toLowerCase().includes(listingSearch.toLowerCase()) ||
-        l.locationName?.toLowerCase().includes(listingSearch.toLowerCase()) ||
-        l.sellerName?.toLowerCase().includes(listingSearch.toLowerCase());
-      const matchCat =
-        listingCategoryFilter === 'all' || l.mainCategory === listingCategoryFilter;
-      return matchSearch && matchCat;
-    });
-  }, [listings, listingSearch, listingCategoryFilter]);
-
-  // Filtered Users
-  const filteredUsers = useMemo(() => {
-    return usersList.filter((u) => {
-      const matchSearch =
-        u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-        u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
-        u.phone.toLowerCase().includes(userSearch.toLowerCase());
-      const matchRole =
-        userRoleFilter === 'all' ||
-        (userRoleFilter === 'admin' ? u.is_admin : u.userType === userRoleFilter);
-      return matchSearch && matchRole;
-    });
-  }, [usersList, userSearch, userRoleFilter]);
-
-  // Category breakdown counts
-  const categoryStats = useMemo(() => {
-    const counts = { real_estate: 0, vehicles: 0, electronics: 0, others: 0 };
-    listings.forEach((l) => {
-      if (counts[l.mainCategory] !== undefined) {
-        counts[l.mainCategory]++;
-      } else {
-        counts.others++;
+        if (error) throw error;
       }
+
+      // Sync local storage
+      await updateListing(listingId, {
+        is_premium: false,
+        isPremium: false,
+        premium_status: 'rejected',
+        premiumStatus: 'rejected',
+      });
+
+      // Update UI state
+      setPendingListings((prev) => prev.filter((item) => item.id !== listingId));
+      setAllListings((prev) =>
+        prev.map((item) =>
+          item.id === listingId
+            ? { ...item, is_premium: false, isPremium: false, premium_status: 'rejected' }
+            : item
+        )
+      );
+      setStats((prev) => ({
+        ...prev,
+        pendingApprovals: Math.max(0, prev.pendingApprovals - 1),
+      }));
+
+      toast.error(`Rejected Golden Pin request for "${title}".`, {
+        icon: '❌',
+        duration: 4000,
+      });
+
+      if (selectedSlipListing?.id === listingId) {
+        setSelectedSlipListing(null);
+      }
+    } catch (err) {
+      console.error('Rejection failed:', err);
+      toast.error('Failed to reject listing: ' + (err.message || 'Please try again.'));
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Filtered pending listings
+  const filteredPending = useMemo(() => {
+    return pendingListings.filter((l) => {
+      if (categoryFilter !== 'all' && (l.main_category || l.mainCategory) !== categoryFilter) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const t = (l.title || '').toLowerCase();
+        const seller = (l.seller_name || l.sellerName || '').toLowerCase();
+        return t.includes(q) || seller.includes(q);
+      }
+      return true;
     });
-    return counts;
-  }, [listings]);
+  }, [pendingListings, categoryFilter, searchQuery]);
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-[5000] bg-slate-900 flex flex-col items-center justify-center text-white">
-        <Loader2 size={36} className="animate-spin text-amber-500 mb-3" />
-        <p className="text-sm font-semibold tracking-wider text-slate-300">
-          Verifying Security & Admin Privileges...
-        </p>
-      </div>
-    );
-  }
-
-  // ACCESS DENIED SCREEN (Security requirement)
-  if (!isAuthorized) {
-    return (
-      <div className="fixed inset-0 z-[5000] bg-slate-950 flex flex-col items-center justify-center p-6 text-white text-center">
-        <div className="w-24 h-24 rounded-3xl bg-red-950/60 border border-red-500/40 flex items-center justify-center text-red-500 mb-6 shadow-[0_0_50px_rgba(239,68,68,0.25)] animate-pulse">
-          <ShieldAlert size={52} />
-        </div>
-
-        <span className="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-black tracking-widest uppercase mb-3">
-          403 Forbidden Area
-        </span>
-
-        <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-2">
-          Access Denied
-        </h1>
-
-        <p className="text-sm sm:text-base text-slate-400 max-w-md mb-6 leading-relaxed">
-          You do not have administrative privileges to view this portal. Only authorized platform owners and staff can access the Selinmap Admin Console.
-        </p>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 max-w-md w-full mb-6 text-left">
-          <p className="text-xs font-semibold text-slate-400 mb-1">Authenticated Account:</p>
-          <p className="text-xs font-mono text-amber-400 truncate">
-            {user?.email || 'Guest / Unauthenticated'}
-          </p>
-          <p className="text-[11px] text-slate-500 mt-2">
-            Status: <span className="text-red-400 font-semibold">is_admin = false</span>
-          </p>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <button
-            onClick={onBack}
-            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white hover:bg-slate-100 text-slate-950 text-xs font-bold transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
-          >
-            <ArrowLeft size={16} />
-            <span>Return to Map</span>
-          </button>
-
-          {/* Local testing helper button so developers/testers can demo right away */}
-          <button
-            onClick={grantLocalAdmin}
-            className="w-full sm:w-auto px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all active:scale-95"
-            title="For local testing if your Supabase table has not updated is_admin yet"
-          >
-            Grant Demo Admin (Local Preview)
-          </button>
-        </div>
-
-        <p className="text-[11px] text-slate-600 mt-8 max-w-sm">
-          To grant admin privileges permanently in Supabase, execute:
-          <br />
-          <code className="text-slate-400 font-mono text-[10px]">
-            UPDATE profiles SET is_admin = true WHERE email = '{user?.email}';
-          </code>
-        </p>
-      </div>
-    );
-  }
-
-  // AUTHORIZED ADMIN DASHBOARD
   return (
-    <div className="fixed inset-0 z-[5000] bg-slate-950 flex flex-col md:flex-row overflow-hidden font-sans">
+    <div className="fixed inset-0 z-[5000] bg-slate-50 flex flex-col overflow-y-auto">
       <Toaster position="top-right" />
 
-      {/* LEFT SIDEBAR (Dark SaaS style) */}
-      <aside className="w-full md:w-64 bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col shrink-0">
-        {/* Brand / Logo */}
-        <div className="p-4 md:p-6 border-b border-slate-800 flex items-center justify-between">
+      {/* Admin Top Header Navigation */}
+      <header className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-xs z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img
-              src="/pin-logo.svg"
-              alt="Selinmap Logo"
-              className="w-8 h-8 object-contain shrink-0"
-            />
-            <div>
-              <h2 className="text-sm font-black text-white tracking-tight leading-none">
-                Selin<span className="text-emerald-400">map</span>
-              </h2>
-              <span className="text-[10px] font-bold tracking-wider uppercase text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded mt-1 inline-block">
-                Owner Console
-              </span>
+            <button
+              onClick={handleGoBack}
+              className="p-2 rounded-xl hover:bg-gray-100 text-gray-700 transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Return to Main Map"
+            >
+              <ArrowLeft size={18} />
+              <span className="text-xs font-bold hidden sm:inline">Back to Map</span>
+            </button>
+
+            <div className="h-5 w-px bg-gray-200 hidden sm:block" />
+
+            <div className="flex items-center gap-2">
+              <span className="text-xl">👑</span>
+              <div>
+                <h1 className="text-base font-black text-gray-900 leading-tight flex items-center gap-2">
+                  <span>Selinmap Admin Panel</span>
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                    Live Control
+                  </span>
+                </h1>
+                <p className="text-[11px] text-gray-500 hidden sm:block">
+                  Manage Golden Pin verification, listings moderation, and platform activity
+                </p>
+              </div>
             </div>
           </div>
 
-          <button
-            onClick={onBack}
-            className="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
-            title="Back to Map"
-          >
-            <ArrowLeft size={18} />
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={fetchDashboardData}
+              disabled={refreshing}
+              className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Refresh all data"
+            >
+              <RefreshCw size={14} className={refreshing ? 'animate-spin text-amber-600' : ''} />
+              <span className="hidden sm:inline">Refresh Data</span>
+            </button>
+          </div>
         </div>
+      </header>
 
-        {/* Navigation Tabs */}
-        <nav className="flex-1 p-3 md:p-4 space-y-1.5 flex md:flex-col overflow-x-auto md:overflow-visible">
+      {/* Main Container */}
+      <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col">
+        {/* 1. Platform Stats Section */}
+        <section className="mb-6">
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2.5">
+            Platform Overview
+          </h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* Total Users */}
+            <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg shrink-0">
+                <Users size={22} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 font-semibold truncate">Total Users</p>
+                <p className="text-2xl font-black text-gray-900 mt-0.5">
+                  {stats.totalUsers.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Total Listings */}
+            <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg shrink-0">
+                <MapPin size={22} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 font-semibold truncate">Total Listings</p>
+                <p className="text-2xl font-black text-gray-900 mt-0.5">
+                  {stats.totalListings.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Active Premium Listings */}
+            <div className="bg-gradient-to-br from-amber-50 to-yellow-50/50 p-4 rounded-2xl border border-amber-200 shadow-xs flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-400 text-slate-950 flex items-center justify-center font-bold text-lg shadow-xs shrink-0">
+                ⭐
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-amber-900 font-bold truncate">Active Golden Pins</p>
+                <p className="text-2xl font-black text-amber-950 mt-0.5">
+                  {stats.activePremium.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Pending Approvals */}
+            <div className={`p-4 rounded-2xl border shadow-xs flex items-center gap-3.5 transition-all ${
+              stats.pendingApprovals > 0
+                ? 'bg-amber-100/60 border-amber-300 ring-2 ring-amber-400/20'
+                : 'bg-white border-gray-200/80'
+            }`}>
+              <div className="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg shrink-0">
+                <Clock size={22} className={stats.pendingApprovals > 0 ? 'animate-pulse' : ''} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-amber-900 font-bold truncate">Pending Approvals</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-2xl font-black text-amber-950">
+                    {stats.pendingApprovals.toLocaleString()}
+                  </span>
+                  {stats.pendingApprovals > 0 && (
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full animate-bounce">
+                      Action Needed
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 2. Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b border-gray-200 pb-2 mb-5 overflow-x-auto">
           <button
-            onClick={() => setActiveTab('overview')}
-            className={`flex-1 md:flex-initial flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              activeTab === 'overview'
-                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            onClick={() => setActiveTab('approvals')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'approvals'
+                ? 'bg-amber-500 text-slate-950 shadow-sm'
+                : 'bg-white hover:bg-gray-100 text-gray-600'
             }`}
           >
-            <LayoutDashboard size={16} />
-            <span>Overview</span>
+            <span>⭐ Golden Pin Approvals</span>
+            {pendingListings.length > 0 && (
+              <span className="bg-slate-950 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
+                {pendingListings.length}
+              </span>
+            )}
           </button>
 
           <button
             onClick={() => setActiveTab('listings')}
-            className={`flex-1 md:flex-initial flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'listings'
-                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                ? 'bg-gray-900 text-white shadow-sm'
+                : 'bg-white hover:bg-gray-100 text-gray-600'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <MapPin size={16} />
-              <span>Listings</span>
-            </div>
-            <span
-              className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
-                activeTab === 'listings'
-                  ? 'bg-slate-950 text-white'
-                  : 'bg-slate-800 text-slate-300'
-              }`}
-            >
-              {listings.length}
-            </span>
+            <span>📋 All Listings ({allListings.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('users')}
-            className={`flex-1 md:flex-initial flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'users'
-                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                ? 'bg-gray-900 text-white shadow-sm'
+                : 'bg-white hover:bg-gray-100 text-gray-600'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <Users size={16} />
-              <span>Users & Brokers</span>
-            </div>
-            <span
-              className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
-                activeTab === 'users'
-                  ? 'bg-slate-950 text-white'
-                  : 'bg-slate-800 text-slate-300'
-              }`}
-            >
-              {usersList.length}
-            </span>
-          </button>
-        </nav>
-
-        {/* Bottom User Card & Exit */}
-        <div className="hidden md:block p-4 border-t border-slate-800">
-          <div className="bg-slate-800/50 rounded-2xl p-3 border border-slate-800 mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-xs font-bold">
-                {user?.email?.charAt(0).toUpperCase() || 'A'}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-white truncate">
-                  {profile?.name || user?.email?.split('@')[0] || 'Administrator'}
-                </p>
-                <p className="text-[10px] text-emerald-400 font-semibold truncate flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Verified Admin
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={onBack}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all active:scale-95"
-          >
-            <ArrowLeft size={14} />
-            <span>Exit to Live Map</span>
+            <span>👥 Platform Users ({usersList.length})</span>
           </button>
         </div>
-      </aside>
 
-      {/* MAIN CONTENT AREA */}
-      <main className="flex-1 bg-slate-50 flex flex-col overflow-y-auto">
-        {/* Top bar */}
-        <header className="h-16 px-6 bg-white border-b border-gray-200 flex items-center justify-between shrink-0 shadow-xs">
-          <div>
-            <h1 className="text-base sm:text-lg font-black text-gray-900 tracking-tight capitalize">
-              {activeTab === 'overview' && 'Platform Overview & Metrics'}
-              {activeTab === 'listings' && 'Manage Marketplace Listings'}
-              {activeTab === 'users' && 'Manage Users & Broker Verification'}
-            </h1>
-            <p className="text-xs text-gray-500">
-              {activeTab === 'overview' && 'Live system health, registered accounts & broker inquiries'}
-              {activeTab === 'listings' && 'Search, inspect or remove listings published across Sri Lanka'}
-              {activeTab === 'users' && 'Grant broker verification badges (🛡️) and manage registered accounts'}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={fetchDashboardData}
-              disabled={actionLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-2xs"
-              title="Refresh Live Data"
-            >
-              <RefreshCw size={13} className={actionLoading ? 'animate-spin' : ''} />
-              <span className="hidden sm:inline">Refresh Data</span>
-            </button>
-
-            <button
-              onClick={onBack}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-xs font-bold text-white active:scale-95 transition-all shadow-xs"
-            >
-              <MapPin size={13} />
-              <span>Map View</span>
-            </button>
-          </div>
-        </header>
-
-        {/* Tab 1: OVERVIEW */}
-        {activeTab === 'overview' && (
-          <div className="p-6 space-y-6 max-w-7xl">
-            {/* 3 BIG STAT CARDS (Requirement 3) */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {/* Stat 1: Total Active Listings */}
-              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
-                <div className="relative">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center mb-4">
-                    <MapPin size={24} />
-                  </div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                    Total Active Listings
-                  </p>
-                  <p className="text-3xl font-black text-gray-900 mt-1">
-                    {listings.length}
-                  </p>
-                  <p className="text-xs text-emerald-600 font-semibold mt-2 flex items-center gap-1">
-                    <span>●</span> Live on map across Sri Lanka
-                  </p>
-                </div>
-              </div>
-
-              {/* Stat 2: Total Registered Users */}
-              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
-                <div className="relative">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-100/80 text-blue-700 flex items-center justify-center mb-4">
-                    <Users size={24} />
-                  </div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                    Total Registered Users
-                  </p>
-                  <p className="text-3xl font-black text-gray-900 mt-1">
-                    {usersList.length}
-                  </p>
-                  <p className="text-xs text-blue-600 font-semibold mt-2 flex items-center gap-1">
-                    <span>👥</span> Owners, Brokers & Dealers
-                  </p>
-                </div>
-              </div>
-
-              {/* Stat 3: Total Broker Inquiries */}
-              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
-                <div className="relative">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-100/80 text-amber-700 flex items-center justify-center mb-4">
-                    <ShieldCheck size={24} />
-                  </div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                    Total Broker Inquiries
-                  </p>
-                  <p className="text-3xl font-black text-gray-900 mt-1">
-                    {inquiries.length}
-                  </p>
-                  <p className="text-xs text-amber-600 font-semibold mt-2 flex items-center gap-1">
-                    <span>🛡️</span> Digital Handshake Agreements
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Category Breakdown & Quick Analytics */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Category distribution */}
-              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm lg:col-span-2">
-                <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider mb-4 flex items-center justify-between">
-                  <span>Listings by Category</span>
-                  <span className="text-xs font-semibold text-gray-400 lowercase">
-                    {listings.length} items total
+        {/* TAB 1: GOLDEN PIN APPROVALS (Core Feature) */}
+        {activeTab === 'approvals' && (
+          <div className="space-y-4">
+            {/* Header & Filter Controls */}
+            <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
+                  <span>Golden Pin Bank Transfer Requests</span>
+                  <span className="text-xs font-bold text-gray-500">
+                    ({filteredPending.length} pending verification)
                   </span>
                 </h3>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 text-center">
-                    <span className="text-2xl mb-1 block">🏠</span>
-                    <p className="text-xs font-bold text-gray-700">Real Estate</p>
-                    <p className="text-xl font-black text-gray-900 mt-1">
-                      {categoryStats.real_estate}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 text-center">
-                    <span className="text-2xl mb-1 block">🚗</span>
-                    <p className="text-xs font-bold text-gray-700">Vehicles</p>
-                    <p className="text-xl font-black text-gray-900 mt-1">
-                      {categoryStats.vehicles}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 text-center">
-                    <span className="text-2xl mb-1 block">📱</span>
-                    <p className="text-xs font-bold text-gray-700">Electronics</p>
-                    <p className="text-xl font-black text-gray-900 mt-1">
-                      {categoryStats.electronics}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 text-center">
-                    <span className="text-2xl mb-1 block">📦</span>
-                    <p className="text-xs font-bold text-gray-700">Others</p>
-                    <p className="text-xl font-black text-gray-900 mt-1">
-                      {categoryStats.others}
-                    </p>
-                  </div>
-                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Verify the uploaded bank receipt against Selinmap's bank accounts, then Approve or Reject.
+                </p>
               </div>
 
-              {/* Verified Brokers Summary */}
-              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between">
-                <div>
-                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <ShieldCheck size={16} className="text-blue-600" />
-                    <span>Broker Verification</span>
-                  </h3>
-                  <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-                    Brokers verified by the platform receive a 🛡️ blue badge on map markers and detail sheets to build buyer trust.
-                  </p>
-
-                  <div className="bg-blue-50/70 border border-blue-100 rounded-2xl p-4 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-blue-900">Verified Brokers:</span>
-                      <span className="text-blue-600 font-black">
-                        {usersList.filter((u) => u.is_verified).length}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-gray-600">Unverified Brokers:</span>
-                      <span className="text-gray-900 font-black">
-                        {usersList.filter((u) => u.userType === 'broker' && !u.is_verified).length}
-                      </span>
-                    </div>
-                  </div>
+              <div className="flex items-center gap-2">
+                {/* Search */}
+                <div className="relative flex-1 sm:w-60">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search title or owner..."
+                    className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-gray-200 bg-gray-50 focus:bg-white outline-none focus:ring-2 focus:ring-amber-400"
+                  />
                 </div>
 
-                <button
-                  onClick={() => setActiveTab('users')}
-                  className="mt-4 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs active:scale-95"
+                {/* Category filter */}
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs font-semibold rounded-xl border border-gray-200 bg-gray-50 outline-none cursor-pointer"
                 >
-                  Manage & Verify Brokers →
-                </button>
+                  <option value="all">All Categories</option>
+                  <option value="real_estate">Real Estate</option>
+                  <option value="vehicles">Vehicles</option>
+                  <option value="electronics">Electronics</option>
+                  <option value="services">Services</option>
+                  <option value="others">Others</option>
+                </select>
               </div>
             </div>
 
-            {/* Recent Inquiries Activity Log */}
-            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">
-                    Recent Digital Handshake Inquiries
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Audit log of buyers contacting brokers with commission protection
-                  </p>
+            {/* List or Table */}
+            {filteredPending.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 border border-gray-200/80 text-center shadow-xs">
+                <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle2 size={32} />
                 </div>
-                <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
-                  {inquiries.length} logged
-                </span>
+                <h3 className="text-base font-bold text-gray-900 mb-1">
+                  All Caught Up!
+                </h3>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                  There are currently no pending Golden Pin bank transfer slips awaiting approval. New requests will appear here in real-time.
+                </p>
               </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3.5">
+                {filteredPending.map((item) => {
+                  const slipUrl = item.payment_slip_url || item.paymentSlipUrl;
+                  const owner =
+                    profilesMap[item.user_id || item.seller_id || item.sellerId] || {};
+                  const ownerName =
+                    owner.full_name ||
+                    owner.name ||
+                    item.seller_name ||
+                    item.sellerName ||
+                    'Anonymous Seller';
+                  const ownerPhone =
+                    owner.phone ||
+                    item.seller_phone ||
+                    item.sellerPhone ||
+                    item.phone ||
+                    'N/A';
+                  const ownerEmail = owner.email || 'N/A';
+                  const cat = item.main_category || item.mainCategory || 'others';
+                  const catIcon = CATEGORY_ICONS[cat] || '📦';
+                  const isActionLoading = actionLoadingId === item.id;
 
-              {inquiries.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-xs">
-                  No inquiries logged yet. When buyers contact brokers, records will appear here.
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {inquiries.slice(0, 5).map((inq, idx) => (
-                    <div key={inq.id || idx} className="py-3 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-3">
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-white rounded-2xl border border-amber-200 shadow-xs hover:shadow-md transition-all p-4.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                    >
+                      {/* Left: Slip Thumbnail & Listing Overview */}
+                      <div className="flex items-start gap-4 min-w-0 flex-1">
+                        {/* Clickable Bank Slip Thumbnail */}
                         <div
-                          className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
-                            inq.contact_method === 'whatsapp'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }`}
+                          onClick={() => setSelectedSlipListing(item)}
+                          className="relative w-24 h-24 rounded-2xl overflow-hidden bg-amber-50 border-2 border-amber-300 group cursor-pointer shrink-0 shadow-xs"
+                          title="Click to view full-size payment slip"
                         >
-                          {inq.contact_method === 'whatsapp' ? (
-                            <MessageCircle size={15} />
-                          ) : (
-                            <Phone size={15} />
-                          )}
+                          <img
+                            src={getOptimizedImageUrl(slipUrl, 'thumbnail')}
+                            alt="Payment Slip"
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                            <Eye size={20} />
+                          </div>
+                          <span className="absolute bottom-1 right-1 bg-amber-400 text-slate-950 font-black text-[9px] px-1.5 py-0.5 rounded shadow-xs">
+                            SLIP
+                          </span>
                         </div>
-                        <div>
-                          <p className="font-bold text-gray-900">
-                            Buyer Phone: <span className="font-mono text-blue-600">{inq.buyer_phone || 'Direct'}</span>
+
+                        {/* Details */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1">
+                              <span>{catIcon}</span>
+                              <span className="capitalize">{cat.replace('_', ' ')}</span>
+                            </span>
+                            <span className="text-[10px] font-bold text-gray-400">
+                              ID: {String(item.id).slice(0, 8)}...
+                            </span>
+                          </div>
+
+                          <h4 className="text-base font-bold text-gray-900 truncate">
+                            {item.title}
+                          </h4>
+
+                          <p className="text-sm font-black text-emerald-600 mt-0.5">
+                            Rs. {Number(item.price).toLocaleString()}
+                            {item.price_tag || item.priceTag ? (
+                              <span className="text-xs text-gray-400 font-semibold ml-1.5">
+                                ({item.price_tag || item.priceTag})
+                              </span>
+                            ) : null}
                           </p>
-                          <p className="text-[11px] text-gray-400">
-                            Property ID: <span className="font-mono">{inq.property_id}</span>
-                          </p>
+
+                          {/* Owner details */}
+                          <div className="mt-2.5 pt-2 border-t border-gray-100 flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-gray-600">
+                            <span className="font-semibold text-gray-900 flex items-center gap-1">
+                              <span>👤</span>
+                              <span>{ownerName}</span>
+                            </span>
+                            <span className="flex items-center gap-1 text-gray-500">
+                              <Phone size={12} className="text-gray-400" />
+                              <span>{ownerPhone}</span>
+                            </span>
+                            {ownerEmail !== 'N/A' && (
+                              <span className="flex items-center gap-1 text-gray-500">
+                                <Mail size={12} className="text-gray-400" />
+                                <span>{ownerEmail}</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-gray-100 text-gray-700">
-                          {inq.contact_method}
-                        </span>
-                        <p className="text-[10px] text-gray-400 mt-0.5">
-                          {inq.created_at ? new Date(inq.created_at).toLocaleDateString() : 'Recent'}
+                      {/* Right: Actions */}
+                      <div className="flex sm:flex-col lg:flex-row items-center gap-2 w-full md:w-auto justify-end border-t md:border-t-0 pt-3 md:pt-0 border-gray-100 shrink-0">
+                        {/* View Slip Button */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSlipListing(item)}
+                          className="px-3.5 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                        >
+                          <Maximize2 size={13} />
+                          <span>View Slip</span>
+                        </button>
+
+                        {/* Approve Button (Green) */}
+                        <button
+                          type="button"
+                          onClick={() => handleApprove(item.id, item.title)}
+                          disabled={isActionLoading}
+                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:shadow active:scale-95 disabled:opacity-50"
+                        >
+                          {isActionLoading ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Check size={14} className="stroke-[3]" />
+                          )}
+                          <span>Approve</span>
+                        </button>
+
+                        {/* Reject Button (Red) */}
+                        <button
+                          type="button"
+                          onClick={() => handleReject(item.id, item.title)}
+                          disabled={isActionLoading}
+                          className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:shadow active:scale-95 disabled:opacity-50"
+                        >
+                          {isActionLoading ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <X size={14} className="stroke-[3]" />
+                          )}
+                          <span>Reject</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: ALL LISTINGS */}
+        {activeTab === 'listings' && (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-gray-900">
+                All Listings on Selinmap ({allListings.length})
+              </h3>
+            </div>
+
+            <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
+              {allListings.map((listing) => {
+                const isPrem = Boolean(listing.is_premium || listing.isPremium);
+                const thumb =
+                  listing.image_urls?.[0] ||
+                  listing.imageUrls?.[0] ||
+                  'https://selinmap.com/pin-logo.svg';
+
+                return (
+                  <div
+                    key={listing.id}
+                    className="p-3.5 hover:bg-gray-50 flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img
+                        src={getOptimizedImageUrl(thumb, 'thumbnail')}
+                        alt={listing.title}
+                        className="w-12 h-12 rounded-xl object-cover bg-gray-100 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          {isPrem && (
+                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-slate-950">
+                              ⭐ GOLD
+                            </span>
+                          )}
+                          <h4 className="font-bold text-gray-900 truncate">{listing.title}</h4>
+                        </div>
+                        <p className="text-gray-500 mt-0.5">
+                          Rs. {Number(listing.price).toLocaleString()} •{' '}
+                          <span className="capitalize">{listing.main_category || listing.mainCategory}</span>
                         </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+
+                    <div className="flex items-center gap-2">
+                      {onSelectListing && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleGoBack();
+                            onSelectListing(listing);
+                          }}
+                          className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 text-gray-600"
+                          title="View on Map"
+                        >
+                          <ExternalLink size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Tab 2: MANAGE LISTINGS (Requirement 4) */}
-        {activeTab === 'listings' && (
-          <div className="p-6 space-y-4 max-w-7xl">
-            {/* Toolbar: Search and Filter */}
-            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="relative w-full sm:w-80">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={listingSearch}
-                  onChange={(e) => setListingSearch(e.target.value)}
-                  placeholder="Search listings by title, seller, or location..."
-                  className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-amber-400"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Filter size={14} className="text-gray-400 shrink-0" />
-                <select
-                  value={listingCategoryFilter}
-                  onChange={(e) => setListingCategoryFilter(e.target.value)}
-                  className="w-full sm:w-auto px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-amber-400"
-                >
-                  <option value="all">All Categories</option>
-                  <option value="real_estate">🏠 Real Estate</option>
-                  <option value="vehicles">🚗 Vehicles</option>
-                  <option value="electronics">📱 Electronics</option>
-                  <option value="others">📦 Others</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Listings Data Table */}
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50/70 border-b border-gray-100 text-[11px] font-black uppercase tracking-wider text-gray-500">
-                      <th className="py-3.5 px-4">Item</th>
-                      <th className="py-3.5 px-4">Category</th>
-                      <th className="py-3.5 px-4">Price</th>
-                      <th className="py-3.5 px-4">Seller</th>
-                      <th className="py-3.5 px-4">Date</th>
-                      <th className="py-3.5 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 text-xs">
-                    {filteredListings.length === 0 ? (
-                      <tr>
-                        <td colSpan="6" className="py-12 text-center text-gray-400">
-                          No listings found matching your search criteria.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredListings.map((item) => {
-                        const hasImg = item.imageUrls && item.imageUrls.length > 0;
-                        return (
-                          <tr key={item.id} className="hover:bg-gray-50/60 transition-colors">
-                            {/* Image Thumbnail & Title */}
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0">
-                                  {hasImg ? (
-                                    <img
-                                      src={item.imageUrls[0]}
-                                      alt={item.title}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-300">
-                                      <Layers size={18} />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="min-w-0 max-w-xs">
-                                  <p className="font-bold text-gray-900 truncate" title={item.title}>
-                                    {item.title}
-                                  </p>
-                                  <p className="text-[11px] text-gray-500 truncate">
-                                    📍 {item.locationName}
-                                  </p>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Category */}
-                            <td className="py-3 px-4">
-                              <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-gray-100 text-gray-800 inline-flex items-center gap-1 capitalize">
-                                <span>
-                                  {item.mainCategory === 'real_estate' && '🏠'}
-                                  {item.mainCategory === 'vehicles' && '🚗'}
-                                  {item.mainCategory === 'electronics' && '📱'}
-                                  {item.mainCategory === 'others' && '📦'}
-                                </span>
-                                <span>{item.mainCategory.replace('_', ' ')}</span>
-                              </span>
-                            </td>
-
-                            {/* Price */}
-                            <td className="py-3 px-4">
-                              <p className="font-black text-gray-950">
-                                Rs {item.price?.toLocaleString()}
-                              </p>
-                              {item.priceTag && (
-                                <span className="text-[10px] text-gray-400 font-bold">
-                                  Rs {item.priceTag}
-                                </span>
-                              )}
-                            </td>
-
-                            {/* Seller Name & Type */}
-                            <td className="py-3 px-4">
-                              <p className="font-bold text-gray-900 flex items-center gap-1">
-                                <span>{item.sellerName}</span>
-                                {item.sellerType === 'broker' && item.isVerified && (
-                                  <span title="Verified Broker" className="text-blue-600">
-                                    🛡️
-                                  </span>
-                                )}
-                              </p>
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
-                                  item.sellerType === 'owner'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : 'bg-blue-100 text-blue-800'
-                                }`}
-                              >
-                                {item.sellerType || 'owner'}
-                              </span>
-                            </td>
-
-                            {/* Date */}
-                            <td className="py-3 px-4 text-gray-500 text-[11px]">
-                              {typeof item.createdAt === 'number'
-                                ? new Date(item.createdAt).toLocaleDateString()
-                                : String(item.createdAt).slice(0, 10)}
-                            </td>
-
-                            {/* Actions */}
-                            <td className="py-3 px-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  onClick={() => handleViewOnMap(item)}
-                                  className="px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-all active:scale-95 flex items-center gap-1"
-                                  title="Center on map & open details"
-                                >
-                                  <MapPin size={13} className="text-blue-600" />
-                                  <span>View</span>
-                                </button>
-
-                                <button
-                                  onClick={() => handleDeleteListing(item.id)}
-                                  className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
-                                  title="Delete listing"
-                                >
-                                  <Trash2 size={15} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 3: MANAGE USERS (Requirement 5) */}
+        {/* TAB 3: PLATFORM USERS */}
         {activeTab === 'users' && (
-          <div className="p-6 space-y-4 max-w-7xl">
-            {/* Toolbar */}
-            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="relative w-full sm:w-80">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  placeholder="Search users by name, email, or phone..."
-                  className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-amber-400"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Filter size={14} className="text-gray-400 shrink-0" />
-                <select
-                  value={userRoleFilter}
-                  onChange={(e) => setUserRoleFilter(e.target.value)}
-                  className="w-full sm:w-auto px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-amber-400"
-                >
-                  <option value="all">All Roles</option>
-                  <option value="broker">Brokers</option>
-                  <option value="owner">Owners</option>
-                  <option value="dealer">Dealers</option>
-                  <option value="admin">Administrators</option>
-                </select>
-              </div>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+            <div className="p-4 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-900">
+                Registered Users & Profiles ({usersList.length})
+              </h3>
             </div>
 
-            {/* Users Data Table */}
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50/70 border-b border-gray-100 text-[11px] font-black uppercase tracking-wider text-gray-500">
-                      <th className="py-3.5 px-4">User</th>
-                      <th className="py-3.5 px-4">Contact Phone</th>
-                      <th className="py-3.5 px-4">Email</th>
-                      <th className="py-3.5 px-4">Role</th>
-                      <th className="py-3.5 px-4">Verified Status</th>
-                      <th className="py-3.5 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 text-xs">
-                    {filteredUsers.length === 0 ? (
-                      <tr>
-                        <td colSpan="6" className="py-12 text-center text-gray-400">
-                          No users found matching your search criteria.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredUsers.map((target) => (
-                        <tr key={target.id} className="hover:bg-gray-50/60 transition-colors">
-                          {/* Name & Avatar */}
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              {target.avatar_url || target.avatarUrl ? (
-                                <img
-                                  src={target.avatar_url || target.avatarUrl}
-                                  alt={target.name || 'User'}
-                                  className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-gray-200"
-                                />
-                              ) : (
-                                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-500 to-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                                  {target.name ? target.name.charAt(0).toUpperCase() : 'U'}
-                                </div>
-                              )}
-                              <div>
-                                <p className="font-bold text-gray-900 flex items-center gap-1.5">
-                                  <span>{target.name}</span>
-                                  {target.is_admin && (
-                                    <span className="text-[10px] font-black uppercase bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
-                                      Admin
-                                    </span>
-                                  )}
-                                </p>
-                                {target.company && (
-                                  <p className="text-[11px] text-gray-400">{target.company}</p>
-                                )}
-                              </div>
-                            </div>
-                          </td>
+            <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
+              {usersList.map((userRow) => (
+                <div
+                  key={userRow.id}
+                  className="p-3.5 hover:bg-gray-50 flex items-center justify-between gap-3 text-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-blue-500 text-white font-bold flex items-center justify-center">
+                      {(userRow.full_name || userRow.name || 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 flex items-center gap-1.5">
+                        <span>{userRow.full_name || userRow.name || 'Anonymous'}</span>
+                        {userRow.is_admin && (
+                          <span className="text-[10px] font-black bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
+                            ADMIN
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-gray-500 text-[11px]">{userRow.email || 'No email'}</p>
+                    </div>
+                  </div>
 
-                          {/* Phone */}
-                          <td className="py-3 px-4 font-mono font-semibold text-gray-800">
-                            {target.phone || <span className="text-gray-300">N/A</span>}
-                          </td>
-
-                          {/* Email */}
-                          <td className="py-3 px-4 text-gray-600">
-                            {target.email}
-                          </td>
-
-                          {/* User Type */}
-                          <td className="py-3 px-4">
-                            <span
-                              className={`text-[11px] font-bold px-2.5 py-1 rounded-full capitalize ${
-                                target.userType === 'broker'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : target.userType === 'dealer'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-emerald-100 text-emerald-800'
-                              }`}
-                            >
-                              {target.userType || 'owner'}
-                            </span>
-                          </td>
-
-                          {/* Verified Status */}
-                          <td className="py-3 px-4">
-                            {target.is_verified ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                                <span>🛡️</span>
-                                <span>Verified Broker</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600">
-                                <span>Unverified</span>
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Actions: [Toggle Verified] and [Delete User] */}
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              {/* Toggle Verified button */}
-                              <button
-                                onClick={() => handleToggleVerified(target)}
-                                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1 ${
-                                  target.is_verified
-                                    ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-                                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-xs'
-                                }`}
-                                title="Toggle verified status for this broker"
-                              >
-                                <ShieldCheck size={13} />
-                                <span>
-                                  {target.is_verified ? 'Revoke 🛡️' : 'Verify 🛡️'}
-                                </span>
-                              </button>
-
-                              {/* Delete User button */}
-                              <button
-                                onClick={() => handleDeleteUser(target.id)}
-                                className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
-                                title="Delete user profile"
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                  <span className="capitalize font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full text-[11px]">
+                    {userRow.user_type || userRow.userType || 'owner'}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         )}
       </main>
+
+      {/* FULL-SIZE BANK SLIP VIEWER MODAL */}
+      {selectedSlipListing && (
+        <div className="fixed inset-0 z-[6000] flex items-center justify-center p-3 sm:p-4">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-xs transition-opacity animate-in fade-in"
+            onClick={() => setSelectedSlipListing(null)}
+          />
+
+          {/* Modal Card */}
+          <div className="relative bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-gray-200 overflow-hidden z-10 animate-in fade-in zoom-in-95 max-h-[92vh] flex flex-col">
+            {/* Header */}
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between shrink-0 bg-gray-50">
+              <div className="flex items-center gap-2">
+                <FileCheck size={18} className="text-amber-600" />
+                <div>
+                  <h3 className="text-sm font-black text-gray-900 leading-tight">
+                    Verify Bank Transfer Slip
+                  </h3>
+                  <p className="text-[11px] text-gray-500 truncate max-w-sm">
+                    {selectedSlipListing.title}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedSlipListing(null)}
+                className="p-1.5 rounded-full hover:bg-gray-200 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Slip Image Full-Size Container */}
+            <div className="p-4 overflow-y-auto flex-1 flex flex-col items-center justify-center bg-gray-950/5 min-h-[300px]">
+              {selectedSlipListing.payment_slip_url || selectedSlipListing.paymentSlipUrl ? (
+                <div className="max-h-[60vh] max-w-full overflow-auto rounded-xl shadow-md border border-gray-200 bg-white p-2">
+                  <img
+                    src={selectedSlipListing.payment_slip_url || selectedSlipListing.paymentSlipUrl}
+                    alt="Full Bank Slip"
+                    className="max-h-[55vh] w-auto object-contain rounded-lg mx-auto"
+                  />
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">No slip image URL found.</p>
+              )}
+
+              {/* Transaction details card */}
+              <div className="w-full mt-3 p-3 bg-white border border-gray-200 rounded-2xl text-xs grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <span className="text-gray-400 font-semibold block text-[10px]">Listing Price</span>
+                  <span className="font-extrabold text-emerald-700">
+                    Rs. {Number(selectedSlipListing.price).toLocaleString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400 font-semibold block text-[10px]">Owner / Seller</span>
+                  <span className="font-bold text-gray-900 truncate block">
+                    {selectedSlipListing.seller_name || selectedSlipListing.sellerName || 'Anonymous'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400 font-semibold block text-[10px]">Contact Phone</span>
+                  <span className="font-bold text-gray-900 truncate block">
+                    {selectedSlipListing.seller_phone || selectedSlipListing.sellerPhone || selectedSlipListing.phone || 'N/A'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions: Approve / Reject */}
+            <div className="p-4 border-t border-gray-100 bg-white flex items-center justify-between gap-3 shrink-0">
+              <a
+                href={selectedSlipListing.payment_slip_url || selectedSlipListing.paymentSlipUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
+              >
+                <span>Open Original Image</span>
+                <ExternalLink size={12} />
+              </a>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleReject(selectedSlipListing.id, selectedSlipListing.title)}
+                  disabled={actionLoadingId === selectedSlipListing.id}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
+                >
+                  {actionLoadingId === selectedSlipListing.id ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <X size={14} className="stroke-[3]" />
+                  )}
+                  <span>Reject</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleApprove(selectedSlipListing.id, selectedSlipListing.title)}
+                  disabled={actionLoadingId === selectedSlipListing.id}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95 disabled:opacity-50"
+                >
+                  {actionLoadingId === selectedSlipListing.id ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Check size={14} className="stroke-[3]" />
+                  )}
+                  <span>Approve Golden Pin</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
