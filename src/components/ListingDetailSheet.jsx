@@ -530,37 +530,69 @@ export default function ListingDetailSheet({
             )}
           </div>
 
-          {/* Golden Pin Upgrade Banner */}
-          {!listing.isPremium && !listing.is_premium && (
-            <div className="mb-4 p-3 bg-gradient-to-r from-amber-500/10 via-yellow-400/15 to-amber-500/10 border border-amber-300/80 rounded-2xl flex items-center justify-between gap-3 shadow-xs">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-amber-950 flex items-center justify-center font-bold text-base shadow-xs shrink-0">
-                  ⭐
+          {/* Golden Pin Upgrade / Status Banner */}
+          {(() => {
+            const isPrem = Boolean(listing.isPremium || listing.is_premium);
+            const isPend =
+              !isPrem &&
+              (listing.premiumStatus === 'pending' || listing.premium_status === 'pending');
+
+            if (isPrem) return null;
+
+            if (isPend) {
+              return (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded-2xl flex items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-yellow-200 text-yellow-900 flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                      ⏳
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-yellow-950 truncate">
+                        Golden Pin Pending
+                      </p>
+                      <p className="text-[11px] text-yellow-800 font-medium truncate">
+                        Slip submitted • Under admin verification (2-24 hrs)
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold text-yellow-800 bg-yellow-200/80 px-2.5 py-1 rounded-full shrink-0">
+                    Pending Approval
+                  </span>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-black text-amber-950 truncate">
-                    Stand out with a Golden Pin
-                  </p>
-                  <p className="text-[11px] text-amber-800 font-medium truncate">
-                    Top z-index priority & glowing gold marker
-                  </p>
+              );
+            }
+
+            return (
+              <div className="mb-4 p-3 bg-gradient-to-r from-amber-500/10 via-yellow-400/15 to-amber-500/10 border border-amber-300/80 rounded-2xl flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-amber-950 flex items-center justify-center font-bold text-base shadow-xs shrink-0">
+                    ⭐
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-amber-950 truncate">
+                      Stand out with a Golden Pin
+                    </p>
+                    <p className="text-[11px] text-amber-800 font-medium truncate">
+                      Top z-index priority & glowing gold marker
+                    </p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!user) {
+                      navigate('/login');
+                    } else {
+                      setShowUpgradeModal(true);
+                    }
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 active:scale-95 text-amber-950 font-black text-xs shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
+                >
+                  🌟 Upgrade
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!user) {
-                    navigate('/login');
-                  } else {
-                    setShowUpgradeModal(true);
-                  }
-                }}
-                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 active:scale-95 text-amber-950 font-black text-xs shadow-xs hover:shadow transition-all shrink-0 cursor-pointer"
-              >
-                🌟 Upgrade
-              </button>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Dynamic Specs Section based on mainCategory */}
           {listing.mainCategory === 'vehicles' && (
@@ -897,8 +929,6 @@ export default function ListingDetailSheet({
             setCurrentListing((prev) => ({
               ...prev,
               ...updated,
-              isPremium: true,
-              is_premium: true,
             }));
           }}
         />

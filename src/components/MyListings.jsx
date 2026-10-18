@@ -159,10 +159,10 @@ export default function MyListings({
         {/* Listing Cards List */}
         <div className="space-y-3.5">
           {userListings.map((item) => {
-            const isPremium = Boolean(item.isPremium || item.is_premium);
-            const isPending =
-              (item.premiumStatus === 'pending' || item.premium_status === 'pending') &&
-              !isPremium;
+            const isPremium = Boolean(item.is_premium || item.isPremium);
+            const premiumStatus = item.premium_status || item.premiumStatus;
+            const isPending = !isPremium && premiumStatus === 'pending';
+
             const rawThumb =
               item.imageUrls?.[0] ||
               item.imageUrl ||
@@ -176,7 +176,7 @@ export default function MyListings({
                   isPremium
                     ? 'border-amber-300 ring-2 ring-amber-400/20 bg-gradient-to-r from-amber-50/30 via-white to-white'
                     : isPending
-                    ? 'border-amber-200 bg-amber-50/20'
+                    ? 'border-yellow-300 bg-yellow-50/30 ring-1 ring-yellow-400/20'
                     : 'border-gray-100 hover:border-gray-200'
                 }`}
               >
@@ -194,8 +194,8 @@ export default function MyListings({
                       </span>
                     )}
                     {isPending && (
-                      <span className="absolute top-1 left-1 bg-amber-200 text-amber-900 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
-                        PENDING
+                      <span className="absolute top-1 left-1 bg-yellow-300 text-yellow-950 text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-xs">
+                        ⏳ PENDING
                       </span>
                     )}
                   </div>
@@ -232,16 +232,14 @@ export default function MyListings({
 
                 {/* Status & Actions */}
                 <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100 flex-wrap sm:flex-nowrap">
-                  {/* Upgrade / Active / Pending Badge */}
+                  {/* Status Badges & Upgrade Button */}
                   {isPremium ? (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-amber-950 shadow-sm ring-1 ring-amber-400/50">
-                      <span>⭐</span>
-                      <span>Premium Active</span>
+                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-amber-950 shadow-sm ring-1 ring-amber-400/50">
+                      <span>⭐ Golden Pin Active</span>
                     </div>
                   ) : isPending ? (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300/80 shadow-xs cursor-default">
-                      <Clock size={13} className="text-amber-700" />
-                      <span>Golden Pin Pending Approval</span>
+                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-900 border border-yellow-300 shadow-xs cursor-default">
+                      <span>⏳ Golden Pin Pending</span>
                     </div>
                   ) : (
                     <button
@@ -249,7 +247,7 @@ export default function MyListings({
                       className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:via-amber-500 hover:to-yellow-500 active:scale-95 text-slate-950 shadow-sm hover:shadow transition-all cursor-pointer font-sans"
                     >
                       <Sparkles size={14} className="text-slate-950" />
-                      <span>🌟 Upgrade to Premium</span>
+                      <span>Upgrade to Premium</span>
                     </button>
                   )}
 
