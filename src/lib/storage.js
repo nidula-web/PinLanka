@@ -252,6 +252,8 @@ export function normalizeListing(row) {
     isPremium: Boolean(row.is_premium || row.isPremium),
     premiumStatus: row.premium_status || row.premiumStatus || '',
     paymentSlipUrl: row.payment_slip_url || row.paymentSlipUrl || '',
+    premiumExpiresAt: row.premium_expires_at || row.premiumExpiresAt || null,
+    premium_expires_at: row.premium_expires_at || row.premiumExpiresAt || null,
     title: row.title || '',
     price: Number(row.price) || 0,
     priceTag: row.price_tag || row.priceTag || '',
@@ -452,6 +454,8 @@ export async function updateListing(id, updates) {
       if (updates.premium_status !== undefined) payload.premium_status = updates.premium_status;
       if (updates.paymentSlipUrl !== undefined) payload.payment_slip_url = updates.paymentSlipUrl;
       if (updates.payment_slip_url !== undefined) payload.payment_slip_url = updates.payment_slip_url;
+      if (updates.premiumExpiresAt !== undefined) payload.premium_expires_at = updates.premiumExpiresAt;
+      if (updates.premium_expires_at !== undefined) payload.premium_expires_at = updates.premium_expires_at;
 
       if (updates.title !== undefined) payload.title = updates.title;
       if (updates.price !== undefined) payload.price = Number(updates.price);
@@ -525,12 +529,62 @@ export async function updateListing(id, updates) {
               : updates.payment_slip_url !== undefined
               ? updates.payment_slip_url
               : l.paymentSlipUrl,
+          premiumExpiresAt:
+            updates.premiumExpiresAt !== undefined
+              ? updates.premiumExpiresAt
+              : updates.premium_expires_at !== undefined
+              ? updates.premium_expires_at
+              : l.premiumExpiresAt || null,
+          premium_expires_at:
+            updates.premium_expires_at !== undefined
+              ? updates.premium_expires_at
+              : updates.premiumExpiresAt !== undefined
+              ? updates.premiumExpiresAt
+              : l.premium_expires_at || null,
         }
       : l
   );
   saveStoredLocalListings(updated);
   listeners.forEach((cb) => cb(updated));
   return updated.find((l) => l.id === id);
+}
+
+/**
+ * Helper to check if a listing's Golden Pin is currently active.
+ * Applies ONLY if is_premium === true AND (premium_expires_at is null OR in the future).
+ */
+export function isListingPremiumActive(listing) {
+  if (!listing) return false;
+  const isPrem = Boolean(listing.is_premium || listing.isPremium);
+  if (!isPrem) return false;
+
+  const expiresAt = listing.premium_expires_at || listing.premiumExpiresAt;
+  if (!expiresAt) return true; // if null, active
+
+  try {
+    return new Date(expiresAt).getTime() > Date.now();
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Helper to check if a listing's approved Golden Pin has expired.
+ * Matches: premium_status === 'approved' AND premium_expires_at < new Date().toISOString()
+ */
+export function isListingPremiumExpired(listing) {
+  if (!listing) return false;
+  const status = listing.premium_status || listing.premiumStatus;
+  const expiresAt = listing.premium_expires_at || listing.premiumExpiresAt;
+
+  if (status === 'approved' && expiresAt) {
+    try {
+      return new Date(expiresAt).toISOString() < new Date().toISOString();
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 /**

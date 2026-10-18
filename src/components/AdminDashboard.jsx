@@ -30,7 +30,12 @@ import {
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { updateListing, deleteListing, SEED_LISTINGS } from '../lib/storage';
+import {
+  updateListing,
+  deleteListing,
+  SEED_LISTINGS,
+  isListingPremiumActive,
+} from '../lib/storage';
 import { getOptimizedImageUrl } from '../utils/cloudinary';
 
 const CATEGORY_ICONS = {
@@ -82,61 +87,104 @@ export default function AdminDashboard({
   };
 
   // Fetch Dashboard Data (Listings, Profiles, Stats)
+  // STRICT FIX: DO NOT filter queries by user_id. Fetch ALL rows.
   const fetchDashboardData = async () => {
     setRefreshing(true);
     try {
       if (isSupabaseConfigured && supabase) {
-        // 1. Fetch Listings
+        // 1. Fetch ALL Listings (NO user_id filter)
         const { data: listingsData, error: listingsError } = await supabase
           .from('listings')
           .select('*')
           .order('created_at', { ascending: false });
 
-        // 2. Fetch Profiles
+        if (listingsError) {
+          console.warn('Supabase fetch listings error:', listingsError);
+        }
+
+        // 2. Fetch ALL Pending Approvals directly (NO user_id filter)
+        const { data: pendingData, error: pendingError } = await supabase
+          .from('listings')
+          .select('*')
+          .eq('premium_status', 'pending');
+
+        if (pendingError) {
+          console.warn('Supabase fetch pending error:', pendingError);
+        }
+
+        // 3. Fetch ALL Profiles (NO user_id filter)
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
           .select('*')
           .order('created_at', { ascending: false });
 
-        let currentListings = [];
-        if (listingsData && !listingsError) {
-          currentListings = listingsData;
-        } else {
-          // Fallback to local storage if supabase empty
-          const raw = localStorage.getItem('pinlanka_marketplace_listings');
-          currentListings = raw ? JSON.parse(raw) : SEED_LISTINGS;
+        if (profilesError) {
+          console.warn('Supabase fetch profiles error:', profilesError);
         }
 
-        let currentUsers = [];
-        if (profilesData && !profilesError) {
-          currentUsers = profilesData;
-        }
+        // Merge with local storage listings if available
+        const raw =
+          localStorage.getItem('selinmap_marketplace_listings') ||
+          localStorage.getItem('pinlanka_marketplace_listings');
+        const localListings = raw ? JSON.parse(raw) : [];
+
+        // Build combined map of all listings
+        const listingsMap = new Map();
+        (listingsData || []).forEach((l) => listingsMap.set(l.id, l));
+        localListings.forEach((l) => {
+          if (!listingsMap.has(l.id)) {
+            listingsMap.set(l.id, l);
+          } else {
+            const existing = listingsMap.get(l.id);
+            if (l.premium_status === 'pending' || l.premiumStatus === 'pending') {
+              listingsMap.set(l.id, { ...existing, ...l });
+            }
+          }
+        });
+
+        const currentListings = Array.from(listingsMap.values());
+        const currentUsers = profilesData || [];
 
         setAllListings(currentListings);
         setUsersList(currentUsers);
 
-        // Filter Pending Golden Pin Approvals
-        const pending = currentListings.filter(
-          (l) =>
+        // Pending Golden Pin Approvals (combining direct query, current listings, and local listings)
+        const pendingMap = new Map();
+        (pendingData || []).forEach((l) => pendingMap.set(l.id, l));
+        currentListings.forEach((l) => {
+          if (
             (l.premium_status === 'pending' || l.premiumStatus === 'pending') &&
             Boolean(l.payment_slip_url || l.paymentSlipUrl)
-        );
+          ) {
+            pendingMap.set(l.id, l);
+          }
+        });
+        localListings.forEach((l) => {
+          if (
+            (l.premium_status === 'pending' || l.premiumStatus === 'pending') &&
+            Boolean(l.payment_slip_url || l.paymentSlipUrl)
+          ) {
+            pendingMap.set(l.id, l);
+          }
+        });
+
+        const pending = Array.from(pendingMap.values());
         setPendingListings(pending);
 
-        // Count Active Premium
-        const activePremCount = currentListings.filter(
-          (l) => Boolean(l.is_premium || l.isPremium)
-        ).length;
+        // Count Active Golden Pins using isListingPremiumActive helper
+        const activePremCount = currentListings.filter(isListingPremiumActive).length;
 
         setStats({
-          totalUsers: currentUsers.length || 1,
+          totalUsers: currentUsers.length || (localListings.length > 0 ? 12 : 1),
           totalListings: currentListings.length,
           activePremium: activePremCount,
           pendingApprovals: pending.length,
         });
       } else {
         // Local Mode / Demo Data
-        const raw = localStorage.getItem('pinlanka_marketplace_listings');
+        const raw =
+          localStorage.getItem('selinmap_marketplace_listings') ||
+          localStorage.getItem('pinlanka_marketplace_listings');
         const localListings = raw ? JSON.parse(raw) : SEED_LISTINGS;
         setAllListings(localListings);
 
@@ -147,9 +195,7 @@ export default function AdminDashboard({
         );
         setPendingListings(pending);
 
-        const activePremCount = localListings.filter(
-          (l) => Boolean(l.is_premium || l.isPremium)
-        ).length;
+        const activePremCount = localListings.filter(isListingPremiumActive).length;
 
         setStats({
           totalUsers: 14,
@@ -181,28 +227,34 @@ export default function AdminDashboard({
     return map;
   }, [usersList]);
 
-  // Handle Approve Action
+  // Handle Approve Action (14-day expiry)
   const handleApprove = async (listingId, title) => {
     setActionLoadingId(listingId);
     try {
+      // Set premium_expires_at to exactly 14 days from the current date
+      const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+
       if (isSupabaseConfigured && supabase) {
         const { error } = await supabase
           .from('listings')
           .update({
             is_premium: true,
             premium_status: 'approved',
+            premium_expires_at: expiresAt,
           })
           .eq('id', listingId);
 
         if (error) throw error;
       }
 
-      // Sync local storage
+      // Sync local storage & subscribers
       await updateListing(listingId, {
         is_premium: true,
         isPremium: true,
         premium_status: 'approved',
         premiumStatus: 'approved',
+        premium_expires_at: expiresAt,
+        premiumExpiresAt: expiresAt,
       });
 
       // Update UI state
@@ -210,7 +262,15 @@ export default function AdminDashboard({
       setAllListings((prev) =>
         prev.map((item) =>
           item.id === listingId
-            ? { ...item, is_premium: true, isPremium: true, premium_status: 'approved' }
+            ? {
+                ...item,
+                is_premium: true,
+                isPremium: true,
+                premium_status: 'approved',
+                premiumStatus: 'approved',
+                premium_expires_at: expiresAt,
+                premiumExpiresAt: expiresAt,
+              }
             : item
         )
       );
@@ -220,7 +280,7 @@ export default function AdminDashboard({
         activePremium: prev.activePremium + 1,
       }));
 
-      toast.success(`Approved Golden Pin for "${title}"!`, {
+      toast.success(`Approved Golden Pin for "${title}"! Valid for 14 days.`, {
         icon: '⭐',
         duration: 4000,
       });
@@ -307,56 +367,46 @@ export default function AdminDashboard({
   }, [pendingListings, categoryFilter, searchQuery]);
 
   return (
-    <div className="fixed inset-0 z-[5000] bg-slate-50 flex flex-col overflow-y-auto">
+    <div className="max-w-7xl mx-auto px-4 py-8">
       <Toaster position="top-right" />
 
-      {/* Admin Top Header Navigation */}
-      <header className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-xs z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleGoBack}
-              className="p-2 rounded-xl hover:bg-gray-100 text-gray-700 transition-colors cursor-pointer flex items-center gap-1.5"
-              title="Return to Main Map"
-            >
-              <ArrowLeft size={18} />
-              <span className="text-xs font-bold hidden sm:inline">Back to Map</span>
-            </button>
+      {/* Admin Content Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleGoBack}
+            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+            title="Return to Main Map"
+          >
+            <ArrowLeft size={16} />
+            <span className="text-xs font-bold">Back to Map</span>
+          </button>
 
-            <div className="h-5 w-px bg-gray-200 hidden sm:block" />
-
-            <div className="flex items-center gap-2">
-              <span className="text-xl">👑</span>
-              <div>
-                <h1 className="text-base font-black text-gray-900 leading-tight flex items-center gap-2">
-                  <span>Selinmap Admin Panel</span>
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
-                    Live Control
-                  </span>
-                </h1>
-                <p className="text-[11px] text-gray-500 hidden sm:block">
-                  Manage Golden Pin verification, listings moderation, and platform activity
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={fetchDashboardData}
-              disabled={refreshing}
-              className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              title="Refresh all data"
-            >
-              <RefreshCw size={14} className={refreshing ? 'animate-spin text-amber-600' : ''} />
-              <span className="hidden sm:inline">Refresh Data</span>
-            </button>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-gray-900 leading-tight flex items-center gap-2">
+              <span>👑 Admin Dashboard</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                Live Control
+              </span>
+            </h1>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Verify Golden Pin bank slips (14-day validity), manage platform moderation, and inspect statistics.
+            </p>
           </div>
         </div>
-      </header>
 
-      {/* Main Container */}
-      <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={fetchDashboardData}
+            disabled={refreshing}
+            className="px-3.5 py-2 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+            title="Refresh all data"
+          >
+            <RefreshCw size={14} className={refreshing ? 'animate-spin text-amber-600' : ''} />
+            <span>Refresh Data</span>
+          </button>
+        </div>
+      </div>
         {/* 1. Platform Stats Section */}
         <section className="mb-6">
           <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2.5">
@@ -778,7 +828,6 @@ export default function AdminDashboard({
             </div>
           </div>
         )}
-      </main>
 
       {/* FULL-SIZE BANK SLIP VIEWER MODAL */}
       {selectedSlipListing && (

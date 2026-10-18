@@ -129,7 +129,7 @@ export default function PremiumUpgradeModal({
       });
 
       // Show success toast
-      toast.success('Slip uploaded! Awaiting admin approval (2-24 hours).', {
+      toast.success('Slip uploaded! Awaiting admin approval (2-4 hours).', {
         duration: 5000,
         icon: '⏳',
         style: {
@@ -375,7 +375,7 @@ export default function PremiumUpgradeModal({
             </button>
 
             <p className="text-[11px] text-gray-400 text-center leading-normal">
-              Admin verification takes 2 to 24 hours. Your Golden Pin activates immediately upon approval.
+              Admin verification takes 2 to 4 hours. Your Golden Pin activates immediately upon approval.
             </p>
           </form>
         </div>

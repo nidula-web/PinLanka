@@ -23,6 +23,7 @@ import ImageCarousel from './ImageCarousel';
 import PremiumUpgradeModal from './PremiumUpgradeModal';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { getProfile } from '../lib/auth';
+import { isListingPremiumActive } from '../lib/storage';
 import { Helmet } from 'react-helmet-async';
 import { getOptimizedImageUrl } from '../utils/cloudinary';
 
@@ -532,7 +533,7 @@ export default function ListingDetailSheet({
 
           {/* Golden Pin Upgrade / Status Banner */}
           {(() => {
-            const isPrem = Boolean(listing.isPremium || listing.is_premium);
+            const isPrem = isListingPremiumActive(listing);
             const isPend =
               !isPrem &&
               (listing.premiumStatus === 'pending' || listing.premium_status === 'pending');
@@ -551,7 +552,7 @@ export default function ListingDetailSheet({
                         Golden Pin Pending
                       </p>
                       <p className="text-[11px] text-yellow-800 font-medium truncate">
-                        Slip submitted • Under admin verification (2-24 hrs)
+                        Slip submitted • Under admin verification (2-4 hrs)
                       </p>
                     </div>
                   </div>

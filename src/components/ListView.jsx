@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { MapPin, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { getOptimizedImageUrl } from '../utils/cloudinary';
+import { isListingPremiumActive } from '../lib/storage';
 
 const CATEGORY_ICONS = {
   real_estate: '🏠',
@@ -19,8 +20,8 @@ const CATEGORY_NAMES = {
 export default function ListView({ listings, onListingClick }) {
   const sortedListings = useMemo(() => {
     return [...listings].sort((a, b) => {
-      const aPrem = Boolean(a.is_premium || a.isPremium);
-      const bPrem = Boolean(b.is_premium || b.isPremium);
+      const aPrem = isListingPremiumActive(a);
+      const bPrem = isListingPremiumActive(b);
       if (aPrem === bPrem) return 0;
       return aPrem ? -1 : 1;
     });
@@ -56,7 +57,7 @@ export default function ListView({ listings, onListingClick }) {
         {/* Responsive Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {sortedListings.map((item) => {
-            const isPremium = Boolean(item.is_premium || item.isPremium);
+            const isPremium = isListingPremiumActive(item);
             const hasImage = item.imageUrls && item.imageUrls.length > 0;
             const catIcon = CATEGORY_ICONS[item.mainCategory] || '📦';
             const isOwner = item.sellerType === 'owner';

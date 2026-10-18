@@ -12,6 +12,7 @@ import L from 'leaflet';
 import { LocateFixed } from 'lucide-react';
 import MagicSearchBar from './MagicSearchBar';
 import { getOptimizedImageUrl } from '../utils/cloudinary';
+import { isListingPremiumActive } from '../lib/storage';
 
 // --- Fix Leaflet default icon issues in Vite ---
 delete L.Icon.Default.prototype._getIconUrl;
@@ -208,18 +209,19 @@ export default function MapPage({
         {displayedListings.map((listing) => {
           const rawImg = listing.imageUrls?.[0] || listing.imageUrl || '';
           const pinImgUrl = rawImg ? getOptimizedImageUrl(rawImg, 'pin') : '';
+          const isPremium = isListingPremiumActive(listing);
 
           return (
             <Marker
               key={listing.id}
               position={[listing.lat, listing.lng]}
-              zIndexOffset={listing.isPremium ? 4999 : 0}
+              zIndexOffset={isPremium ? 4999 : 0}
               icon={createPriceBubble(
                 listing.priceTag,
                 listing.sellerType,
                 listing.mainCategory,
                 listing.isVerified,
-                listing.isPremium
+                isPremium
               )}
               eventHandlers={{
                 click: () => onMarkerClick && onMarkerClick(listing),
@@ -252,7 +254,7 @@ export default function MapPage({
                       {listing.title}
                     </h4>
                     <p className="text-xs font-black text-emerald-600 mt-1">
-                      {listing.isPremium && <span className="text-amber-500 mr-0.5">⭐</span>}
+                      {isPremium && <span className="text-amber-500 mr-0.5">⭐</span>}
                       Rs. {Number(listing.price).toLocaleString()}
                       {listing.priceTag && (
                         <span className="text-[10px] text-gray-500 font-semibold ml-1">

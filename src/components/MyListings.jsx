@@ -11,7 +11,11 @@ import {
   Pencil,
   Clock,
 } from 'lucide-react';
-import { deleteListing } from '../lib/storage';
+import {
+  deleteListing,
+  isListingPremiumActive,
+  isListingPremiumExpired,
+} from '../lib/storage';
 import { getOptimizedImageUrl } from '../utils/cloudinary';
 import PremiumUpgradeModal, { getPremiumPrice } from './PremiumUpgradeModal';
 import EditListingModal from './EditListingModal';
@@ -48,7 +52,7 @@ export default function MyListings({
   }, [localListings, uid]);
 
   const premiumCount = useMemo(() => {
-    return userListings.filter((l) => l.isPremium || l.is_premium).length;
+    return userListings.filter(isListingPremiumActive).length;
   }, [userListings]);
 
   const handleUpgradeSuccess = (updatedListing) => {
@@ -159,9 +163,10 @@ export default function MyListings({
         {/* Listing Cards List */}
         <div className="space-y-3.5">
           {userListings.map((item) => {
-            const isPremium = Boolean(item.is_premium || item.isPremium);
+            const isExpired = isListingPremiumExpired(item);
+            const isPremium = !isExpired && isListingPremiumActive(item);
             const premiumStatus = item.premium_status || item.premiumStatus;
-            const isPending = !isPremium && premiumStatus === 'pending';
+            const isPending = !isPremium && !isExpired && premiumStatus === 'pending';
 
             const rawThumb =
               item.imageUrls?.[0] ||
@@ -172,92 +177,108 @@ export default function MyListings({
             return (
               <div
                 key={item.id}
-                className={`bg-white rounded-2xl border transition-all duration-200 p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                className={`bg-white rounded-2xl border transition-all duration-200 p-4 shadow-xs flex flex-col justify-between gap-2 ${
                   isPremium
                     ? 'border-amber-300 ring-2 ring-amber-400/20 bg-gradient-to-r from-amber-50/30 via-white to-white'
+                    : isExpired
+                    ? 'border-amber-200 bg-amber-50/30'
                     : isPending
                     ? 'border-yellow-300 bg-yellow-50/30 ring-1 ring-yellow-400/20'
                     : 'border-gray-100 hover:border-gray-200'
                 }`}
               >
-                {/* Thumbnail & Information */}
-                <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                  <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 shrink-0 relative">
-                    <img
-                      src={thumb}
-                      alt={item.title}
-                      className="w-full h-full object-cover"
-                    />
-                    {isPremium && (
-                      <span className="absolute top-1 left-1 bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm">
-                        ⭐ GOLD
-                      </span>
-                    )}
-                    {isPending && (
-                      <span className="absolute top-1 left-1 bg-yellow-300 text-yellow-950 text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-xs">
-                        ⏳ PENDING
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                        {item.mainCategory}
-                      </span>
-                      {item.subCategory && (
-                        <span className="text-[10px] font-semibold text-gray-500 capitalize">
-                          • {item.subCategory}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+                  {/* Thumbnail & Information */}
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 shrink-0 relative">
+                      <img
+                        src={thumb}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                      />
+                      {isPremium && (
+                        <span className="absolute top-1 left-1 bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm">
+                          ⭐ GOLD
+                        </span>
+                      )}
+                      {isPending && (
+                        <span className="absolute top-1 left-1 bg-yellow-300 text-yellow-950 text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-xs">
+                          ⏳ PENDING
+                        </span>
+                      )}
+                      {isExpired && (
+                        <span className="absolute top-1 left-1 bg-amber-200 text-amber-950 text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-xs">
+                          ⚠️ EXPIRED
                         </span>
                       )}
                     </div>
-                    <h3 className="text-sm font-bold text-gray-900 truncate">
-                      {item.title}
-                    </h3>
-                    <p className="text-sm font-black text-emerald-600 mt-0.5">
-                      {isPremium && <span className="text-amber-500 mr-1">⭐</span>}
-                      Rs. {Number(item.price).toLocaleString()}
-                      {item.priceTag && (
-                        <span className="text-xs text-gray-400 font-medium ml-1.5">
-                          ({item.priceTag})
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                          {item.mainCategory}
                         </span>
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 truncate">
-                      <MapPin size={12} className="shrink-0 text-gray-400" />
-                      <span className="truncate">{item.locationName || 'Sri Lanka'}</span>
-                    </p>
+                        {item.subCategory && (
+                          <span className="text-[10px] font-semibold text-gray-500 capitalize">
+                            • {item.subCategory}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-sm font-bold text-gray-900 truncate">
+                        {item.title}
+                      </h3>
+                      <p className="text-sm font-black text-emerald-600 mt-0.5">
+                        {isPremium && <span className="text-amber-500 mr-1">⭐</span>}
+                        Rs. {Number(item.price).toLocaleString()}
+                        {item.priceTag && (
+                          <span className="text-xs text-gray-400 font-medium ml-1.5">
+                            ({item.priceTag})
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 truncate">
+                        <MapPin size={12} className="shrink-0 text-gray-400" />
+                        <span className="truncate">{item.locationName || 'Sri Lanka'}</span>
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                {/* Status & Actions */}
-                <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100 flex-wrap sm:flex-nowrap">
-                  {/* Status Badges & Upgrade Button */}
-                  {isPremium ? (
-                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-amber-950 shadow-sm ring-1 ring-amber-400/50">
-                      <span>⭐ Golden Pin Active</span>
-                    </div>
-                  ) : isPending ? (
-                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-900 border border-yellow-300 shadow-xs cursor-default">
-                      <span>⏳ Golden Pin Pending</span>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setUpgradeTarget(item)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:via-amber-500 hover:to-yellow-500 active:scale-95 text-slate-950 shadow-sm hover:shadow transition-all cursor-pointer font-sans"
-                    >
-                      <Sparkles size={14} className="text-slate-950" />
-                      <span>Upgrade to Premium</span>
-                    </button>
-                  )}
+                  {/* Status & Actions */}
+                  <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100 flex-wrap sm:flex-nowrap">
+                    {/* Status Badges & Upgrade Button */}
+                    {isPremium ? (
+                      <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-amber-950 shadow-sm ring-1 ring-amber-400/50">
+                        <span>⭐ Golden Pin Active</span>
+                      </div>
+                    ) : isPending ? (
+                      <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-900 border border-yellow-300 shadow-xs cursor-default">
+                        <span>⏳ Golden Pin Pending</span>
+                      </div>
+                    ) : isExpired ? (
+                      <button
+                        onClick={() => setUpgradeTarget(item)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:via-amber-500 hover:to-yellow-500 active:scale-95 text-slate-950 shadow-sm hover:shadow transition-all cursor-pointer font-sans"
+                      >
+                        <Sparkles size={14} className="text-slate-950" />
+                        <span>Renew Golden Pin</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setUpgradeTarget(item)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:via-amber-500 hover:to-yellow-500 active:scale-95 text-slate-950 shadow-sm hover:shadow transition-all cursor-pointer font-sans"
+                      >
+                        <Sparkles size={14} className="text-slate-950" />
+                        <span>Upgrade to Premium</span>
+                      </button>
+                    )}
 
-                  {/* View on Map */}
-                  {onSelectListing && (
-                    <button
-                      onClick={() => {
-                        onBack();
-                        onSelectListing(item);
-                      }}
+                    {/* View on Map */}
+                    {onSelectListing && (
+                      <button
+                        onClick={() => {
+                          onBack();
+                          onSelectListing(item);
+                        }}
                       className="p-2 rounded-xl border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 active:scale-95 transition-all cursor-pointer"
                       title="View on Map"
                     >
@@ -289,8 +310,25 @@ export default function MyListings({
                   </button>
                 </div>
               </div>
-            );
-          })}
+
+              {/* Expired Golden Pin Alert Banner */}
+              {isExpired && (
+                <div className="w-full mt-1 p-3 rounded-xl bg-amber-100/90 border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in">
+                  <div className="flex items-center gap-2 text-amber-950 font-bold">
+                    <span>⚠️ Your Golden Pin has expired! Renew your Golden Pin and stay on top to get the right sale.</span>
+                  </div>
+                  <button
+                    onClick={() => setUpgradeTarget(item)}
+                    className="shrink-0 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 active:scale-95 text-slate-950 font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles size={13} className="text-slate-950" />
+                    <span>Renew Golden Pin</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
         </div>
       </main>
 

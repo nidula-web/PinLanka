@@ -182,32 +182,9 @@ export default function App() {
   };
 
   return (
-    <Routes>
-      {/* Protected Admin Route */}
-      <Route
-        path="/admin"
-        element={
-          <AdminRoute user={user} profile={profile}>
-            <AdminDashboard
-              user={user}
-              profile={profile}
-              onBack={() => navigate('/')}
-              onSelectListing={(listing) => {
-                navigate('/');
-                setSelectedListing(listing);
-                setViewMode('map');
-              }}
-            />
-          </AdminRoute>
-        }
-      />
+    <div className="h-dvh w-screen flex flex-col overflow-hidden bg-gray-100">
+      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
 
-      {/* Main Marketplace */}
-      <Route
-        path="*"
-        element={
-          <div className="h-dvh w-screen flex flex-col overflow-hidden bg-gray-100">
-            <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
       {/* Local Preview Mode Banner (slim) */}
       {!isSupabaseConfigured && !bannerDismissed && (
         <div className="bg-amber-50 border-b border-amber-200/80 px-4 py-1.5 flex items-center justify-between text-[11px] text-amber-900 z-[1002] shrink-0">
@@ -227,11 +204,15 @@ export default function App() {
         </div>
       )}
 
-      {/* Unified Modern Marketplace Header */}
+      {/* Unified Modern Marketplace Header / Navbar */}
       <header className="bg-white/95 backdrop-blur-md border-b border-gray-200/80 z-[1001] shrink-0 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
         {/* Row 1: Brand Logo & User Actions */}
         <div className="h-13 px-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+          <div
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2.5 cursor-pointer select-none"
+            title="Return to Home"
+          >
             <img
               src="/pin-logo.svg"
               alt="Selinmap Logo"
@@ -249,13 +230,24 @@ export default function App() {
 
           <div className="flex items-center gap-2">
             {Boolean(profile?.is_admin || user?.user_metadata?.is_admin || user?.is_admin) && (
-              <button
-                onClick={() => navigate('/admin')}
-                className="flex items-center gap-1.5 text-xs font-black bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 active:scale-95 text-amber-950 px-3 py-1.5 rounded-full shadow-xs border border-amber-300 transition-all cursor-pointer"
-                title="Admin Dashboard"
-              >
-                <span>👑 Admin Panel</span>
-              </button>
+              location.pathname === '/admin' ? (
+                <button
+                  onClick={() => navigate('/')}
+                  className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-950 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full border border-gray-300 transition-all cursor-pointer"
+                  title="Return to Map"
+                >
+                  <Map size={14} />
+                  <span>Back to Map</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/admin')}
+                  className="flex items-center gap-1.5 text-xs font-black bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 active:scale-95 text-amber-950 px-3 py-1.5 rounded-full shadow-xs border border-amber-300 transition-all cursor-pointer"
+                  title="Admin Dashboard"
+                >
+                  <span>👑 Admin Panel</span>
+                </button>
+              )
             )}
 
             {/* My Ads & Golden Pins Button */}
@@ -306,77 +298,108 @@ export default function App() {
           </div>
         </div>
 
-        {/* Row 2: Integrated Category Navigation & Filters */}
-        <div className="px-4 pb-2.5 pt-0.5 border-t border-gray-100/70">
-          <FilterBar
-            activeCategory={activeCategory}
-            onCategoryChange={setActiveCategory}
-            activeSubCategory={activeSubCategory}
-            onSubCategoryChange={setActiveSubCategory}
-            priceRange={priceRange}
-            onPriceRangeChange={setPriceRange}
-          />
-        </div>
-      </header>
-
-      {/* Main Content Area: Map or List View */}
-      <main className="flex-1 relative overflow-hidden">
-        {viewMode === 'map' ? (
-          <MapPage
-            listings={filteredListings}
-            onMarkerClick={setSelectedListing}
-            pickMode={pickMode}
-            onPickLocation={handlePickLocation}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-          />
-        ) : (
-          <ListView
-            listings={filteredListings}
-            onListingClick={setSelectedListing}
-          />
-        )}
-
-        {/* Floating View Toggle Button: [🗺️ Map] | [📄 List] */}
-        {!pickMode && !selectedListing && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto">
-            <div className="bg-gray-950/90 backdrop-blur-md p-1 rounded-full shadow-2xl border border-white/10 flex items-center gap-0.5 ring-1 ring-black/20">
-              <button
-                onClick={() => setViewMode('map')}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 flex items-center gap-1.5 active:scale-95 ${
-                  viewMode === 'map'
-                    ? 'bg-white text-gray-950 shadow-sm'
-                    : 'text-gray-300 hover:text-white'
-                }`}
-              >
-                <Map size={14} />
-                <span>Map</span>
-              </button>
-
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 flex items-center gap-1.5 active:scale-95 ${
-                  viewMode === 'list'
-                    ? 'bg-white text-gray-950 shadow-sm'
-                    : 'text-gray-300 hover:text-white'
-                }`}
-              >
-                <LayoutList size={14} />
-                <span>List</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${
-                    viewMode === 'list'
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'bg-white/15 text-white'
-                  }`}
-                >
-                  {filteredListings.length}
-                </span>
-              </button>
-            </div>
+        {/* Row 2: Integrated Category Navigation & Filters (only for marketplace views) */}
+        {location.pathname !== '/admin' && (
+          <div className="px-4 pb-2.5 pt-0.5 border-t border-gray-100/70">
+            <FilterBar
+              activeCategory={activeCategory}
+              onCategoryChange={setActiveCategory}
+              activeSubCategory={activeSubCategory}
+              onSubCategoryChange={setActiveSubCategory}
+              priceRange={priceRange}
+              onPriceRangeChange={setPriceRange}
+            />
           </div>
         )}
-      </main>
+      </header>
+
+      {/* Main View Router */}
+      <Routes>
+        {/* Protected Admin Route */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute user={user} profile={profile}>
+              <div className="flex-1 overflow-y-auto bg-slate-50">
+                <AdminDashboard
+                  user={user}
+                  profile={profile}
+                  onBack={() => navigate('/')}
+                  onSelectListing={(listing) => {
+                    navigate('/');
+                    setSelectedListing(listing);
+                    setViewMode('map');
+                  }}
+                />
+              </div>
+            </AdminRoute>
+          }
+        />
+
+        {/* Main Marketplace */}
+        <Route
+          path="*"
+          element={
+            <main className="flex-1 relative overflow-hidden">
+              {viewMode === 'map' ? (
+                <MapPage
+                  listings={filteredListings}
+                  onMarkerClick={setSelectedListing}
+                  pickMode={pickMode}
+                  onPickLocation={handlePickLocation}
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                />
+              ) : (
+                <ListView
+                  listings={filteredListings}
+                  onListingClick={setSelectedListing}
+                />
+              )}
+
+              {/* Floating View Toggle Button: [🗺️ Map] | [📄 List] */}
+              {!pickMode && !selectedListing && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto">
+                  <div className="bg-gray-950/90 backdrop-blur-md p-1 rounded-full shadow-2xl border border-white/10 flex items-center gap-0.5 ring-1 ring-black/20">
+                    <button
+                      onClick={() => setViewMode('map')}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 flex items-center gap-1.5 active:scale-95 ${
+                        viewMode === 'map'
+                          ? 'bg-white text-gray-950 shadow-sm'
+                          : 'text-gray-300 hover:text-white'
+                      }`}
+                    >
+                      <Map size={14} />
+                      <span>Map</span>
+                    </button>
+
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 flex items-center gap-1.5 active:scale-95 ${
+                        viewMode === 'list'
+                          ? 'bg-white text-gray-950 shadow-sm'
+                          : 'text-gray-300 hover:text-white'
+                      }`}
+                    >
+                      <LayoutList size={14} />
+                      <span>List</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${
+                          viewMode === 'list'
+                            ? 'bg-gray-100 text-gray-900'
+                            : 'bg-white/15 text-white'
+                        }`}
+                      >
+                        {filteredListings.length}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </main>
+          }
+        />
+      </Routes>
 
       {/* Bottom sheet */}
       <ListingDetailSheet
@@ -454,10 +477,6 @@ export default function App() {
           onListingClick={handleSellerListingClick}
         />
       )}
-
-          </div>
-        }
-      />
-    </Routes>
+    </div>
   );
 }
