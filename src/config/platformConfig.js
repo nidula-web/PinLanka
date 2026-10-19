@@ -20,10 +20,10 @@ export const PLATFORM_CONFIG = {
     },
   ],
   contact: {
-    email: 'support@selinmap.com',
+    email: 'support@sellinmap.com',
     phone: '+94 777 816 116',
     whatsapp: '+94 777 816 116',
     operatingHours: 'Mon - Sat: 8:30 AM - 11:59 PM (IST)',
   },
-  copyright: '© 2024 Selinmap. All rights reserved.',
+  copyright: '© 2024 Sellinmap. All rights reserved.',
 };

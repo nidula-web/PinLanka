@@ -48,7 +48,7 @@ export default function ContactUs() {
             Get in Touch
           </span>
           <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
-            Contact Selinmap Support
+            Contact Sellinmap Support
           </h1>
           <p className="text-xs sm:text-sm text-gray-600 mt-2 max-w-xl mx-auto leading-relaxed">
             Have questions about posting listings, upgrading to Golden Pin, or verifying your broker profile? Our Sri Lankan team is here to help.

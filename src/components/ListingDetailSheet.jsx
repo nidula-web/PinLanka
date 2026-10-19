@@ -301,7 +301,7 @@ export default function ListingDetailSheet({
 
   const phone = listing.sellerPhone || listing.phone || '';
   const waText = encodeURIComponent(
-    `Hi, I'm interested in "${listing.title}" on Selinmap`
+    `Hi, I'm interested in "${listing.title}" on Sellinmap`
   );
   const waLink = `https://wa.me/${phone}?text=${waText}`;
   const callLink = `tel:${phone}`;
@@ -437,16 +437,16 @@ export default function ListingDetailSheet({
   const smartMetric = getSmartPriceMetric(listing);
 
   const title = listing.title || 'Listing Details';
-  const description = listing.description || `View ${title} on Selinmap - Sri Lanka's live map marketplace.`;
+  const description = listing.description || `View ${title} on Sellinmap - Sri Lanka's live map marketplace.`;
   const rawFirstImage = listing.imageUrls?.[0] || listing.imageUrl || '';
   const optimizedFullImageUrl = rawFirstImage
     ? getOptimizedImageUrl(rawFirstImage, 'full')
-    : 'https://selinmap.com/pin-logo.svg';
+    : 'https://sellinmap.com/pin-logo.svg';
 
   return (
     <>
       <Helmet>
-        <title>{title} | Selinmap</title>
+        <title>{title} | Sellinmap</title>
         <meta name="description" content={description.substring(0, 150)} />
         <meta property="og:title" content={title} />
         <meta property="og:image" content={optimizedFullImageUrl} />

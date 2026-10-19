@@ -230,12 +230,12 @@ export default function App() {
           >
             <img
               src="/pin-logo.svg"
-              alt="Selinmap Logo"
+              alt="Sellinmap Logo"
               className="w-8 h-8 object-contain shrink-0 transition-transform group-hover:scale-105"
             />
             <div className="flex items-baseline gap-1.5">
               <h1 className="text-lg font-black text-gray-900 tracking-tight">
-                Selin<span className="text-emerald-600">map</span>
+                Sellin<span className="text-emerald-600">map</span>
               </h1>
               <span className="hidden sm:inline-block text-[10px] font-bold text-gray-400 border-l border-gray-200 pl-2 uppercase tracking-wider">
                 Marketplace

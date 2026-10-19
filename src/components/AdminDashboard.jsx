@@ -544,7 +544,7 @@ export default function AdminDashboard({
                   </span>
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Verify the uploaded bank receipt against Selinmap's bank accounts, then Approve or Reject.
+                  Verify the uploaded bank receipt against Sellinmap's bank accounts, then Approve or Reject.
                 </p>
               </div>
 
@@ -823,7 +823,7 @@ export default function AdminDashboard({
           <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between gap-3">
               <h3 className="text-sm font-bold text-gray-900">
-                All Listings on Selinmap ({allListings.length})
+                All Listings on Sellinmap ({allListings.length})
               </h3>
             </div>
 
@@ -833,7 +833,7 @@ export default function AdminDashboard({
                 const thumb =
                   listing.image_urls?.[0] ||
                   listing.imageUrls?.[0] ||
-                  'https://selinmap.com/pin-logo.svg';
+                  'https://sellinmap.com/pin-logo.svg';
 
                 return (
                   <div

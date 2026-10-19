@@ -95,7 +95,7 @@ export default function AdminRoute({ children, user: propUser, profile: propProf
           Verifying Admin Authorization...
         </h2>
         <p className="text-xs text-gray-500">
-          Checking your administrator permissions with Selinmap
+          Checking your administrator permissions with Sellinmap
         </p>
       </div>
     );

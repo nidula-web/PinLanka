@@ -27,7 +27,7 @@ export default function TermsOfService() {
               Terms of Service
             </h1>
             <p className="text-xs text-gray-500 mt-1">
-              Effective date: October 2024 • Selinmap Interactive Classifieds Platform
+              Effective date: October 2024 • Sellinmap Interactive Classifieds Platform
             </p>
           </div>
 
@@ -38,7 +38,7 @@ export default function TermsOfService() {
               <span>1. Acceptance of Terms</span>
             </h2>
             <p className="text-xs sm:text-sm leading-relaxed text-gray-600">
-              By accessing, browsing, registering on, or posting listings to <strong>Selinmap</strong> (&ldquo;the Platform&rdquo;), you acknowledge that you have read, understood, and agreed to be bound by these Terms of Service. If you disagree with any part of these terms, you must refrain from using the platform.
+              By accessing, browsing, registering on, or posting listings to <strong>Sellinmap</strong> (&ldquo;the Platform&rdquo;), you acknowledge that you have read, understood, and agreed to be bound by these Terms of Service. If you disagree with any part of these terms, you must refrain from using the platform.
             </p>
           </section>
 
@@ -60,13 +60,13 @@ export default function TermsOfService() {
               <span>3. Listing Rules & Prohibited Content</span>
             </h2>
             <p className="text-xs sm:text-sm leading-relaxed text-gray-600">
-              When creating listings on Selinmap, you agree that:
+              When creating listings on Sellinmap, you agree that:
             </p>
             <ul className="list-disc pl-5 text-xs sm:text-sm space-y-1.5 text-gray-600">
               <li>All map pins must accurately reflect the geographic location of the property, vehicle, or service within Sri Lanka.</li>
               <li>Listings must not promote prohibited items, counterfeit merchandise, stolen goods, or illegal services under Sri Lankan law.</li>
               <li>Prices must be listed in Sri Lankan Rupees (LKR / Rs.) and reflect genuine asking prices without deceptive lowball tags.</li>
-              <li>Selinmap reserves the unconditional right to unpublish, edit, or remove any listing that breaches platform guidelines or receives multiple community fraud reports.</li>
+              <li>Sellinmap reserves the unconditional right to unpublish, edit, or remove any listing that breaches platform guidelines or receives multiple community fraud reports.</li>
             </ul>
           </section>
 
@@ -77,10 +77,10 @@ export default function TermsOfService() {
               <span>4. Golden Pin Upgrades & Bank Transfers</span>
             </h2>
             <p className="text-xs sm:text-sm leading-relaxed text-gray-600">
-              Selinmap offers promotional &ldquo;Golden Pin&rdquo; highlights to elevate visibility on the map:
+              Sellinmap offers promotional &ldquo;Golden Pin&rdquo; highlights to elevate visibility on the map:
             </p>
             <ul className="list-disc pl-5 text-xs sm:text-sm space-y-1.5 text-gray-600">
-              <li>Payment is executed exclusively via direct bank transfer or cash deposit into designated Selinmap company bank accounts (Commercial Bank or Bank of Ceylon).</li>
+              <li>Payment is executed exclusively via direct bank transfer or cash deposit into designated Sellinmap company bank accounts (Commercial Bank or Bank of Ceylon).</li>
               <li>Users must upload a legible, authentic bank transfer slip or deposit receipt. Uploading forged, tampered, or fraudulent receipts will lead to immediate account termination.</li>
               <li>Golden Pin activation occurs upon admin verification (typically within 2 to 4 hours) and remains valid for the stipulated duration (7 or 14 days).</li>
               <li>Approved promotional fees are non-refundable once the Golden Pin has been activated on the interactive map.</li>
@@ -94,7 +94,7 @@ export default function TermsOfService() {
               <span>5. Platform Role & Limitation of Liability</span>
             </h2>
             <p className="text-xs sm:text-sm leading-relaxed text-gray-600">
-              Selinmap functions as a digital classifieds directory and interactive discovery tool. We are not a party to any transaction, agreement, or transfer of goods between buyers and sellers. Users are urged to exercise due diligence, inspect vehicles/properties in person, and transact through secure legal channels. Selinmap shall not be held liable for any direct or indirect loss resulting from peer-to-peer agreements.
+              Sellinmap functions as a digital classifieds directory and interactive discovery tool. We are not a party to any transaction, agreement, or transfer of goods between buyers and sellers. Users are urged to exercise due diligence, inspect vehicles/properties in person, and transact through secure legal channels. Sellinmap shall not be held liable for any direct or indirect loss resulting from peer-to-peer agreements.
             </p>
           </section>
 
@@ -105,7 +105,7 @@ export default function TermsOfService() {
               <span>6. Governing Law & Dispute Resolution</span>
             </h2>
             <p className="text-xs sm:text-sm leading-relaxed text-gray-600">
-              These terms are governed by and construed in accordance with the laws of the Democratic Socialist Republic of Sri Lanka. Any disputes arising out of the use of Selinmap shall be subject to the exclusive jurisdiction of the courts of Colombo, Sri Lanka.
+              These terms are governed by and construed in accordance with the laws of the Democratic Socialist Republic of Sri Lanka. Any disputes arising out of the use of Sellinmap shall be subject to the exclusive jurisdiction of the courts of Colombo, Sri Lanka.
             </p>
           </section>
         </div>

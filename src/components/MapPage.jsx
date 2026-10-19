@@ -334,7 +334,7 @@ export default function MapPage({
               }}
             >
               <Popup
-                className="selinmap-pin-popup"
+                className="sellinmap-pin-popup"
                 maxWidth={230}
                 minWidth={180}
                 closeButton={false}

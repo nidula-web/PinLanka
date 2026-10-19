@@ -27,7 +27,7 @@ export default function PrivacyPolicy() {
               Privacy Policy
             </h1>
             <p className="text-xs text-gray-500 mt-1">
-              Last updated: October 2024 • Applicable to Selinmap Sri Lanka (selinmap.com)
+              Last updated: October 2024 • Applicable to Sellinmap Sri Lanka (sellinmap.com)
             </p>
           </div>
 
@@ -38,7 +38,7 @@ export default function PrivacyPolicy() {
               <span>1. Introduction</span>
             </h2>
             <p className="text-xs sm:text-sm leading-relaxed text-gray-600">
-              Welcome to <strong>Selinmap</strong> (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;). We are committed to protecting your personal information and your right to privacy. This Privacy Policy describes how we collect, use, store, and disclose your personal information when you use our interactive map classifieds platform, website, and related services across Sri Lanka.
+              Welcome to <strong>Sellinmap</strong> (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;). We are committed to protecting your personal information and your right to privacy. This Privacy Policy describes how we collect, use, store, and disclose your personal information when you use our interactive map classifieds platform, website, and related services across Sri Lanka.
             </p>
           </section>
 
@@ -114,7 +114,7 @@ export default function PrivacyPolicy() {
               <span>6. Your Rights & Account Management</span>
             </h2>
             <p className="text-xs sm:text-sm leading-relaxed text-gray-600">
-              Under applicable Sri Lankan laws, you maintain the right to access, update, or permanently delete your listings and account profile at any time through your Profile Dashboard, or by submitting a written request to <a href="mailto:privacy@selinmap.com" className="text-emerald-600 font-bold hover:underline">privacy@selinmap.com</a>.
+              Under applicable Sri Lankan laws, you maintain the right to access, update, or permanently delete your listings and account profile at any time through your Profile Dashboard, or by submitting a written request to <a href="mailto:privacy@sellinmap.com" className="text-emerald-600 font-bold hover:underline">privacy@sellinmap.com</a>.
             </p>
           </section>
         </div>

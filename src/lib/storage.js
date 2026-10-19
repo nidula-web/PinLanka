@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const LOCAL_STORAGE_KEY = 'selinmap_marketplace_listings';
+const LOCAL_STORAGE_KEY = 'sellinmap_marketplace_listings';
 const LEGACY_STORAGE_KEY = 'pinlanka_marketplace_listings';
 
 export const CATEGORY_EMOJIS = {

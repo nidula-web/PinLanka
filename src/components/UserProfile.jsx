@@ -434,7 +434,7 @@ export default function UserProfile({ user, onBack, onSignOut, onProfileUpdate, 
         <div className="mt-6 bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-gray-800">Account Session</p>
-            <p className="text-[11px] text-gray-500">Sign out of your Selinmap account</p>
+            <p className="text-[11px] text-gray-500">Sign out of your Sellinmap account</p>
           </div>
           <button
             type="button"

@@ -10,7 +10,7 @@ export default function Footer() {
         <div className="flex items-center gap-2">
           <span className="font-black text-gray-800 tracking-tight flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-            Selin<span className="text-emerald-600">map</span>
+            Sellin<span className="text-emerald-600">map</span>
           </span>
           <span className="text-gray-300">|</span>
           <span>{PLATFORM_CONFIG.copyright}</span>
