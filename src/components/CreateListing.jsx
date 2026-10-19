@@ -258,9 +258,14 @@ export default function CreateListing({
   // Initialize Google PlacesService via @googlemaps/js-api-loader
   useEffect(() => {
     try {
-      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-      if (!apiKey) {
-        console.error('Missing Google Maps API Key in .env');
+      // It will try to use the Vite env first. If that fails, it will use the fallback string.
+      const apiKey =
+        import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyD9WsGnRKKtbehjrehRer-LKy7R1LcynxY';
+
+      console.log('🔑 API Key check:', apiKey.startsWith('AIza') ? 'Key found!' : 'Key missing!');
+
+      if (apiKey === 'REPLACE_ME_WITH_REAL_KEY' || !apiKey) {
+        console.warn('⚠️ Using placeholder key. Search will fail until replaced.');
         return;
       }
 
