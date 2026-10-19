@@ -62,22 +62,11 @@ const DRAGGABLE_PIN_ICON = L.divIcon({
  */
 export function MapUpdater({ center }) {
   const map = useMap();
-
   useEffect(() => {
-    if (center) {
-      const targetLat = Array.isArray(center) ? center[0] : center.lat;
-      const targetLng = Array.isArray(center) ? center[1] : center.lng;
-      if (
-        typeof targetLat === 'number' &&
-        typeof targetLng === 'number' &&
-        !isNaN(targetLat) &&
-        !isNaN(targetLng)
-      ) {
-        map.flyTo([targetLat, targetLng], 15, { duration: 1.5 });
-      }
+    if (center && Array.isArray(center) && center.length === 2 && center[0] !== undefined) {
+      map.flyTo(center, 15, { duration: 1.5 });
     }
   }, [center, map]);
-
   return null;
 }
 
@@ -257,11 +246,8 @@ export default function CreateListing({
   const [sellerType, setSellerType] = useState('owner');
   const [description, setDescription] = useState('');
 
-  // Location marker & map state
-  const [markerPosition, setMarkerPosition] = useState({
-    lat: 6.9271,
-    lng: 79.8612,
-  });
+  // Location marker & map state (valid array of numbers for Sri Lanka)
+  const [markerPosition, setMarkerPosition] = useState([7.8731, 80.7718]);
   const [isLocating, setIsLocating] = useState(false);
   const [locationFeedback, setLocationFeedback] = useState('');
   const markerRef = useRef(null);
@@ -295,7 +281,7 @@ export default function CreateListing({
   const updateCoordinates = useCallback((newLat, newLng, newLocationName = null) => {
     const roundedLat = parseFloat(Number(newLat).toFixed(6));
     const roundedLng = parseFloat(Number(newLng).toFixed(6));
-    setMarkerPosition({ lat: roundedLat, lng: roundedLng });
+    setMarkerPosition([roundedLat, roundedLng]);
     setLat(roundedLat);
     setLng(roundedLng);
     setLocationSelected(true);
@@ -320,7 +306,7 @@ export default function CreateListing({
 
   /**
    * 1. Google Autocomplete selection event handler:
-   * Extracts lat/lng from place.geometry.location, updates markerPosition & location_name
+   * Strictly extracts lat/lng by calling functions with ()
    */
   const handlePlaceSelected = (place) => {
     if (!place || !place.geometry || !place.geometry.location) {
@@ -328,15 +314,21 @@ export default function CreateListing({
       return;
     }
 
-    const loc = place.geometry.location;
-    const selectedLat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
-    const selectedLng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
 
-    const parsedLat = parseFloat(Number(selectedLat).toFixed(6));
-    const parsedLng = parseFloat(Number(selectedLng).toFixed(6));
+    const parsedLat = parseFloat(Number(lat).toFixed(6));
+    const parsedLng = parseFloat(Number(lng).toFixed(6));
+
+    setMarkerPosition([parsedLat, parsedLng]);
+    setLat(parsedLat);
+    setLng(parsedLng);
+    setLocationSelected(true);
 
     const address = place.formatted_address || place.name || '';
-    updateCoordinates(parsedLat, parsedLng, address);
+    if (address) {
+      setLocationName(address);
+    }
     setLocationFeedback(`📍 Location set: ${place.name || address.split(',')[0]}`);
     setTimeout(() => setLocationFeedback(''), 4000);
   };
@@ -450,8 +442,8 @@ export default function CreateListing({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const numLat = parseFloat(lat ?? markerPosition.lat);
-    const numLng = parseFloat(lng ?? markerPosition.lng);
+    const numLat = parseFloat(lat ?? markerPosition[0]);
+    const numLng = parseFloat(lng ?? markerPosition[1]);
 
     if (isNaN(numLat) || isNaN(numLng)) {
       alert('Please select a location on the map or search bar.');
@@ -1097,7 +1089,7 @@ export default function CreateListing({
                   {/* Leaflet MapContainer with MapUpdater */}
                   <div className="relative w-full h-[250px] rounded-2xl overflow-hidden border border-gray-200/90 shadow-inner z-0 group">
                     <MapContainer
-                      center={[markerPosition.lat, markerPosition.lng]}
+                      center={markerPosition}
                       zoom={14}
                       scrollWheelZoom={true}
                       className="w-full h-full z-0 cursor-crosshair"
@@ -1125,7 +1117,7 @@ export default function CreateListing({
                       <Marker
                         draggable={true}
                         eventHandlers={markerEventHandlers}
-                        position={[markerPosition.lat, markerPosition.lng]}
+                        position={markerPosition}
                         ref={markerRef}
                         icon={DRAGGABLE_PIN_ICON}
                       />
@@ -1145,7 +1137,7 @@ export default function CreateListing({
                     <div className="absolute bottom-2 right-2 z-[1000] bg-white/95 backdrop-blur-xs text-gray-700 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full shadow-sm border border-gray-200/80 pointer-events-none flex items-center gap-1">
                       <MapPin size={11} className="text-emerald-600" />
                       <span>
-                        {markerPosition.lat.toFixed(4)}, {markerPosition.lng.toFixed(4)}
+                        {markerPosition[0].toFixed(4)}, {markerPosition[1].toFixed(4)}
                       </span>
                     </div>
                   </div>

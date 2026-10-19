@@ -53,22 +53,11 @@ const DRAGGABLE_PIN_ICON = L.divIcon({
  */
 export function MapUpdater({ center }) {
   const map = useMap();
-
   useEffect(() => {
-    if (center) {
-      const targetLat = Array.isArray(center) ? center[0] : center.lat;
-      const targetLng = Array.isArray(center) ? center[1] : center.lng;
-      if (
-        typeof targetLat === 'number' &&
-        typeof targetLng === 'number' &&
-        !isNaN(targetLat) &&
-        !isNaN(targetLng)
-      ) {
-        map.flyTo([targetLat, targetLng], 15, { duration: 1.5 });
-      }
+    if (center && Array.isArray(center) && center.length === 2 && center[0] !== undefined) {
+      map.flyTo(center, 15, { duration: 1.5 });
     }
   }, [center, map]);
-
   return null;
 }
 
@@ -103,14 +92,11 @@ export default function SmartLocationPicker({
   locationName = '',
   onLocationNameChange,
 }) {
-  // Default to Colombo center if coordinates are empty
-  const initialLat = lat ? parseFloat(lat) : 6.9271;
-  const initialLng = lng ? parseFloat(lng) : 79.8612;
+  // Default to Sri Lanka center if coordinates are empty
+  const initialLat = lat ? parseFloat(lat) : 7.8731;
+  const initialLng = lng ? parseFloat(lng) : 80.7718;
 
-  const [markerPosition, setMarkerPosition] = useState({
-    lat: initialLat,
-    lng: initialLng,
-  });
+  const [markerPosition, setMarkerPosition] = useState([initialLat, initialLng]);
   const [isLocating, setIsLocating] = useState(false);
   const [feedback, setFeedback] = useState('');
   const markerRef = useRef(null);
@@ -123,7 +109,7 @@ export default function SmartLocationPicker({
       const parsedLat = parseFloat(lat);
       const parsedLng = parseFloat(lng);
       if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
-        setMarkerPosition({ lat: parsedLat, lng: parsedLng });
+        setMarkerPosition([parsedLat, parsedLng]);
       }
     }
   }, [lat, lng]);
@@ -132,7 +118,7 @@ export default function SmartLocationPicker({
     (newLat, newLng, newLocationName = null) => {
       const roundedLat = parseFloat(Number(newLat).toFixed(6));
       const roundedLng = parseFloat(Number(newLng).toFixed(6));
-      setMarkerPosition({ lat: roundedLat, lng: roundedLng });
+      setMarkerPosition([roundedLat, roundedLng]);
       onLocationChange(roundedLat, roundedLng);
 
       if (newLocationName && onLocationNameChange) {
@@ -163,9 +149,8 @@ export default function SmartLocationPicker({
       return;
     }
 
-    const loc = place.geometry.location;
-    const selectedLat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
-    const selectedLng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
+    const selectedLat = place.geometry.location.lat();
+    const selectedLng = place.geometry.location.lng();
 
     const parsedLat = parseFloat(Number(selectedLat).toFixed(6));
     const parsedLng = parseFloat(Number(selectedLng).toFixed(6));
@@ -278,7 +263,7 @@ export default function SmartLocationPicker({
       {/* Mini-Map Container (height ~250px, rounded corners) */}
       <div className="relative w-full h-[250px] rounded-2xl overflow-hidden border border-gray-200/90 shadow-inner z-0 group">
         <MapContainer
-          center={[markerPosition.lat, markerPosition.lng]}
+          center={markerPosition}
           zoom={14}
           scrollWheelZoom={true}
           className="w-full h-full z-0 cursor-crosshair"
@@ -306,7 +291,7 @@ export default function SmartLocationPicker({
           <Marker
             draggable={true}
             eventHandlers={markerEventHandlers}
-            position={[markerPosition.lat, markerPosition.lng]}
+            position={markerPosition}
             ref={markerRef}
             icon={DRAGGABLE_PIN_ICON}
           />
@@ -326,7 +311,7 @@ export default function SmartLocationPicker({
         <div className="absolute bottom-2 right-2 z-[1000] bg-white/95 backdrop-blur-xs text-gray-700 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full shadow-sm border border-gray-200/80 pointer-events-none flex items-center gap-1">
           <MapPin size={11} className="text-emerald-600" />
           <span>
-            {markerPosition.lat.toFixed(4)}, {markerPosition.lng.toFixed(4)}
+            {markerPosition[0].toFixed(4)}, {markerPosition[1].toFixed(4)}
           </span>
         </div>
       </div>
