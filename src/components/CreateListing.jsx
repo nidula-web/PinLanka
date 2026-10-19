@@ -340,75 +340,63 @@ export default function CreateListing({
     [updateCoordinates]
   );
 
+  // State updater helper for newListing compatibility
+  const setNewListing = (updater) => {
+    if (typeof updater === 'function') {
+      const updated = updater({ location_name: locationName, lat, lng });
+      if (updated?.location_name) setLocationName(updated.location_name);
+      if (updated?.lat) setLat(updated.lat);
+      if (updated?.lng) setLng(updated.lng);
+    }
+  };
+
   /**
    * Search location via Google PlacesService textSearch (finds POIs, cities, landmarks)
    */
   const handleSearchLocation = () => {
-    if (!searchText.trim() || !placesService) return;
+    if (!searchText || !placesService) {
+      console.log('Search blocked: Missing text or placesService.');
+      return;
+    }
+
     setIsSearching(true);
-    setLocationFeedback('');
+    console.log(`🧠 Asking Google Brain for: "${searchText} Sri Lanka"`);
 
     const request = {
-      query: searchText.trim() + ' Sri Lanka',
+      query: searchText + ' Sri Lanka',
     };
 
-    placesService.textSearch(request, async (results, status) => {
-      if (
-        (status === window.google?.maps?.places?.PlacesServiceStatus?.OK || status === 'OK') &&
-        results &&
-        results.length > 0
-      ) {
-        setIsSearching(false);
+    placesService.textSearch(request, (results, status) => {
+      setIsSearching(false);
+      console.log('🧠 Google Status Code:', status);
+      console.log('🧠 Google Results Array:', results);
+
+      // Bypass the global enum and check the string directly to prevent undefined errors
+      if (status === 'OK' && results && results.length > 0) {
         const place = results[0];
-        const lat = place.geometry.location.lat();
-        const lng = place.geometry.location.lng();
-        const parsedLat = parseFloat(Number(lat).toFixed(6));
-        const parsedLng = parseFloat(Number(lng).toFixed(6));
 
-        setMarkerPosition([parsedLat, parsedLng]);
-        setLat(parsedLat);
-        setLng(parsedLng);
+        // Handle both function and direct value coordinates
+        const lat =
+          typeof place.geometry.location.lat === 'function'
+            ? place.geometry.location.lat()
+            : place.geometry.location.lat;
+        const lng =
+          typeof place.geometry.location.lng === 'function'
+            ? place.geometry.location.lng()
+            : place.geometry.location.lng;
+
+        console.log(`📍 Found coordinates: Lat ${lat}, Lng ${lng}`);
+
+        setMarkerPosition([lat, lng]);
+        setLat(lat);
+        setLng(lng);
         setLocationSelected(true);
-
-        const locationTitle = place.formatted_address || place.name || searchText.trim();
-        setLocationName(locationTitle);
-        setLocationFeedback(`📍 Location set: ${place.name || locationTitle.split(',')[0]}`);
-        setTimeout(() => setLocationFeedback(''), 4000);
+        setNewListing((prev) => ({
+          ...prev,
+          location_name: place.name || place.formatted_address,
+        }));
       } else {
-        // Resilient fallback to OpenStreetMap Nominatim Sri Lanka if not found in Places
-        try {
-          const osmRes = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-              searchText.trim()
-            )}&countrycodes=LK`,
-            { headers: { 'Accept-Language': 'en' } }
-          );
-          if (osmRes.ok) {
-            const osmData = await osmRes.json();
-            if (Array.isArray(osmData) && osmData.length > 0) {
-              const { lat: oLat, lon: oLng, display_name } = osmData[0];
-              const parsedLat = parseFloat(Number(oLat).toFixed(6));
-              const parsedLng = parseFloat(Number(oLng).toFixed(6));
-
-              setMarkerPosition([parsedLat, parsedLng]);
-              setLat(parsedLat);
-              setLng(parsedLng);
-              setLocationSelected(true);
-
-              const formattedAddress = display_name || searchText.trim();
-              setLocationName(formattedAddress);
-              setLocationFeedback(`📍 Location set: ${formattedAddress.split(',')[0]}`);
-              setTimeout(() => setLocationFeedback(''), 4000);
-              setIsSearching(false);
-              return;
-            }
-          }
-        } catch (osmErr) {
-          console.warn('OSM Nominatim fallback error:', osmErr);
-        }
-
-        setIsSearching(false);
-        alert('Location not found. Please try a different search term.');
+        alert(`Location not found. Google said: ${status}`);
       }
     });
   };
