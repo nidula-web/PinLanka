@@ -8,7 +8,7 @@ import {
   LayersControl,
 } from 'react-leaflet';
 import L from 'leaflet';
-import { Loader } from '@googlemaps/js-api-loader';
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import {
   Search,
   LocateFixed,
@@ -104,39 +104,39 @@ export default function SmartLocationPicker({
   const [feedback, setFeedback] = useState('');
   const markerRef = useRef(null);
 
-  // Initialize Google PlacesService via @googlemaps/js-api-loader
+  // Initialize Google PlacesService via @googlemaps/js-api-loader functional API
   useEffect(() => {
-    try {
-      // It will try to use the Vite env first. If that fails, it will use the fallback string.
-      const apiKey =
-        import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyD9WsGnRKKtbehjrehRer-LKy7R1LcynxY';
+    let isMounted = true;
 
-      console.log('🔑 API Key check:', apiKey.startsWith('AIza') ? 'Key found!' : 'Key missing!');
+    const initGooglePlaces = async () => {
+      try {
+        const apiKey =
+          import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyD9WsGnRKKtbehjrehRer-LKy7R1LcynxY'; // The key is confirmed working
 
-      if (apiKey === 'REPLACE_ME_WITH_REAL_KEY' || !apiKey) {
-        console.warn('⚠️ Using placeholder key. Search will fail until replaced.');
-        return;
+        // 1. Set global options
+        setOptions({
+          apiKey: apiKey,
+          version: 'weekly',
+        });
+
+        // 2. Import the library directly
+        const { PlacesService } = await importLibrary('places');
+
+        if (isMounted) {
+          const dummyElement = document.createElement('div');
+          const service = new PlacesService(dummyElement);
+          setPlacesService(service);
+        }
+      } catch (error) {
+        console.error('Google Places init failed:', error);
       }
+    };
 
-      const loader = new Loader({
-        apiKey: apiKey,
-        version: 'weekly',
-        libraries: ['places'],
-      });
+    initGooglePlaces();
 
-      loader
-        .load()
-        .then(() => {
-          if (window.google?.maps?.places?.PlacesService) {
-            const dummyElement = document.createElement('div');
-            const service = new window.google.maps.places.PlacesService(dummyElement);
-            setPlacesService(service);
-          }
-        })
-        .catch((err) => console.error('Google Maps script failed to load:', err));
-    } catch (error) {
-      console.error('Loader crash:', error);
-    }
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Sync position if incoming lat/lng props change from outside
