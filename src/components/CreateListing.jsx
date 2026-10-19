@@ -321,6 +321,7 @@ export default function CreateListing({
    */
   const handlePlaceSelected = (place) => {
     if (!place || !place.geometry || !place.geometry.location) {
+      console.warn('No location data for this place');
       setLocationFeedback('Please select a valid place from the suggestions dropdown.');
       return;
     }
@@ -624,7 +625,16 @@ export default function CreateListing({
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4 text-left">
+          <form
+            onSubmit={handleSubmit}
+            onKeyDown={(e) => {
+              // If the user presses Enter anywhere in the form (like the search bar), stop it from submitting the form.
+              if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+              }
+            }}
+            className="px-5 py-4 space-y-4 text-left"
+          >
             {/* Step 1: Main Category */}
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
@@ -1059,11 +1069,6 @@ export default function CreateListing({
                       <Autocomplete
                         apiKey={googleApiKey}
                         onPlaceSelected={handlePlaceSelected}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                          }
-                        }}
                         options={{
                           types: ['geocode', 'establishment'],
                           componentRestrictions: { country: 'lk' },

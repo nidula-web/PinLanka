@@ -306,7 +306,15 @@ export default function EditListingModal({
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+              e.preventDefault();
+            }
+          }}
+          className="p-5 overflow-y-auto space-y-4"
+        >
           {/* Title */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">

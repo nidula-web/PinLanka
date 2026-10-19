@@ -156,6 +156,7 @@ export default function SmartLocationPicker({
   // 1. Google Autocomplete place selection handler
   const handlePlaceSelected = (place) => {
     if (!place || !place.geometry || !place.geometry.location) {
+      console.warn('No location data for this place');
       setFeedback('Location details not found. Please select from the dropdown.');
       return;
     }
@@ -231,11 +232,6 @@ export default function SmartLocationPicker({
           <Autocomplete
             apiKey={googleApiKey}
             onPlaceSelected={handlePlaceSelected}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-              }
-            }}
             options={{
               types: ['geocode', 'establishment'],
               componentRestrictions: { country: 'lk' },
