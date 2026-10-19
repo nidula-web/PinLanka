@@ -320,29 +320,28 @@ export default function CreateListing({
    * Strictly extracts lat/lng by calling functions with ()
    */
   const handlePlaceSelected = (place) => {
-    if (!place || !place.geometry || !place.geometry.location) {
-      console.warn('No location data for this place');
-      setLocationFeedback('Please select a valid place from the suggestions dropdown.');
-      return;
+    console.log("Selected Place:", place);
+    if (place && place.geometry && place.geometry.location) {
+      const lat = place.geometry.location.lat();
+      const lng = place.geometry.location.lng();
+
+      const parsedLat = parseFloat(Number(lat).toFixed(6));
+      const parsedLng = parseFloat(Number(lng).toFixed(6));
+
+      setMarkerPosition([parsedLat, parsedLng]);
+      setLat(parsedLat);
+      setLng(parsedLng);
+      setLocationSelected(true);
+
+      const address = place.formatted_address || place.name || '';
+      if (address) {
+        setLocationName(address);
+      }
+      setLocationFeedback(`📍 Location set: ${place.name || address.split(',')[0]}`);
+      setTimeout(() => setLocationFeedback(''), 4000);
+    } else {
+      alert("Please select a place from the dropdown suggestions.");
     }
-
-    const lat = place.geometry.location.lat();
-    const lng = place.geometry.location.lng();
-
-    const parsedLat = parseFloat(Number(lat).toFixed(6));
-    const parsedLng = parseFloat(Number(lng).toFixed(6));
-
-    setMarkerPosition([parsedLat, parsedLng]);
-    setLat(parsedLat);
-    setLng(parsedLng);
-    setLocationSelected(true);
-
-    const address = place.formatted_address || place.name || '';
-    if (address) {
-      setLocationName(address);
-    }
-    setLocationFeedback(`📍 Location set: ${place.name || address.split(',')[0]}`);
-    setTimeout(() => setLocationFeedback(''), 4000);
   };
 
   // Detect current GPS location
@@ -452,7 +451,9 @@ export default function CreateListing({
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
 
     const numLat = parseFloat(lat ?? markerPosition[0]);
     const numLng = parseFloat(lng ?? markerPosition[1]);
@@ -625,16 +626,7 @@ export default function CreateListing({
             </button>
           </div>
 
-          <form
-            onSubmit={handleSubmit}
-            onKeyDown={(e) => {
-              // If the user presses Enter anywhere in the form (like the search bar), stop it from submitting the form.
-              if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
-                e.preventDefault();
-              }
-            }}
-            className="px-5 py-4 space-y-4 text-left"
-          >
+          <div className="px-5 py-4 space-y-4 text-left">
             {/* Step 1: Main Category */}
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
@@ -1217,7 +1209,8 @@ export default function CreateListing({
             {/* Submit */}
             <div className="pt-2">
               <button
-                type="submit"
+                type="button"
+                onClick={handleSubmit}
                 disabled={submitting}
                 className="w-full py-3 bg-gray-950 hover:bg-gray-800 active:scale-[0.99] disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
@@ -1231,7 +1224,7 @@ export default function CreateListing({
                 )}
               </button>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </>
