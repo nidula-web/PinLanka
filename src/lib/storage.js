@@ -44,6 +44,12 @@ export const SEED_LISTINGS = [
       'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
     ],
+    land_boundaries: [
+      [6.9052, 79.8675],
+      [6.9055, 79.8692],
+      [6.9036, 79.8690],
+      [6.9034, 79.8677],
+    ],
     createdAt: Date.now() - 1000 * 60 * 60 * 2,
   },
   {
@@ -277,6 +283,16 @@ export function normalizeListing(row) {
       ? row.image_urls
       : Array.isArray(row.imageUrls)
       ? row.imageUrls
+      : [],
+    land_boundaries: Array.isArray(row.land_boundaries)
+      ? row.land_boundaries
+      : Array.isArray(row.landBoundaries)
+      ? row.landBoundaries
+      : [],
+    landBoundaries: Array.isArray(row.land_boundaries)
+      ? row.land_boundaries
+      : Array.isArray(row.landBoundaries)
+      ? row.landBoundaries
       : [],
     createdAt: row.created_at || row.createdAt || Date.now(),
   };

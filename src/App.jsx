@@ -54,6 +54,7 @@ export default function App() {
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [flyToBoundaries, setFlyToBoundaries] = useState(null);
 
   const pickCallbackRef = useRef(null);
 
@@ -344,6 +345,8 @@ export default function App() {
                 <MapPage
                   listings={filteredListings}
                   onMarkerClick={setSelectedListing}
+                  activeListing={selectedListing}
+                  flyToBoundaries={flyToBoundaries}
                   pickMode={pickMode}
                   onPickLocation={handlePickLocation}
                   searchQuery={searchQuery}
@@ -408,6 +411,11 @@ export default function App() {
         listing={selectedListing}
         onClose={() => setSelectedListing(null)}
         onViewSeller={handleViewSeller}
+        onViewBoundaries={(boundaries, listing) => {
+          setSelectedListing(listing);
+          setFlyToBoundaries([...boundaries]);
+          setViewMode('map');
+        }}
         user={user}
         profile={profile}
       />

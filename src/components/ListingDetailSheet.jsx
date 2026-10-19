@@ -283,6 +283,7 @@ export default function ListingDetailSheet({
   listing: initialListing,
   onClose,
   onViewSeller,
+  onViewBoundaries,
   user,
   profile,
 }) {
@@ -489,6 +490,27 @@ export default function ListingDetailSheet({
         <div className="flex-1 overflow-y-auto touch-pan-y px-5 pt-1 pb-8">
           {/* Image carousel */}
           <ImageCarousel images={listing.imageUrls} />
+
+          {/* View Land Boundaries Button */}
+          {Boolean(
+            (listing.land_boundaries && listing.land_boundaries.length > 2) ||
+            (listing.landBoundaries && listing.landBoundaries.length > 2)
+          ) && (
+            <button
+              type="button"
+              onClick={() => {
+                const boundaries = listing.land_boundaries || listing.landBoundaries;
+                if (onViewBoundaries) {
+                  onViewBoundaries(boundaries, listing);
+                }
+                onClose();
+              }}
+              className="w-full my-3 py-2.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-2xl text-xs font-bold shadow-md shadow-amber-500/20 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-300"
+            >
+              <span>🗺️</span>
+              <span>View Land Boundaries</span>
+            </button>
+          )}
 
           {/* Header */}
           <div className="flex items-start justify-between mb-2">

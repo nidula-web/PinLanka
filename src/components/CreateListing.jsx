@@ -3,6 +3,7 @@ import {
   MapContainer,
   TileLayer,
   Marker,
+  Polygon,
   useMap,
   useMapEvents,
   LayersControl,
@@ -81,11 +82,24 @@ function InvalidateSizeEffect({ isExpanded }) {
   return null;
 }
 
-// Allow tapping anywhere on map to reposition pin
-function MapClickHandler({ onLocationChange }) {
+// Allow tapping anywhere on map to reposition pin (disabled during boundary drawing)
+function MapClickHandler({ onLocationChange, disabled }) {
   useMapEvents({
     click(e) {
+      if (disabled) return;
       onLocationChange(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
+// Leaflet event listener component for drawing land boundaries
+function MapDrawEvents({ isDrawing, setPoints }) {
+  useMapEvents({
+    click(e) {
+      if (isDrawing) {
+        setPoints((prev) => [...prev, [e.latlng.lat, e.latlng.lng]]);
+      }
     },
   });
   return null;
@@ -253,6 +267,8 @@ export default function CreateListing({
   const [locationFeedback, setLocationFeedback] = useState('');
   const markerRef = useRef(null);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const [boundaryPoints, setBoundaryPoints] = useState([]);
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
   // Images & submit state
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -536,6 +552,9 @@ export default function CreateListing({
         if (size && size.trim()) {
           newListingData.size = size.trim();
         }
+        if (Array.isArray(boundaryPoints) && boundaryPoints.length > 0) {
+          newListingData.land_boundaries = boundaryPoints;
+        }
       } else if (mainCategory === 'vehicles') {
         if (vehicleType || activeSubCategory) {
           newListingData.vehicle_type = vehicleType || activeSubCategory;
@@ -615,6 +634,8 @@ export default function CreateListing({
       setLat(null);
       setLng(null);
       setLocationSelected(false);
+      setBoundaryPoints([]);
+      setIsDrawingMode(false);
       setImageFiles([]);
       setImagePreviews([]);
       onClose();
@@ -1151,6 +1172,39 @@ export default function CreateListing({
                       </div>
                     )}
 
+                    {/* Land Boundary Drawing Toolbar (Fullscreen & Real Estate only) */}
+                    {isMapExpanded &&
+                      (mainCategory === 'real_estate' || mainCategory === 'Real Estate') && (
+                        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[400] flex items-center gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-full shadow-xl border border-gray-200">
+                          <button
+                            type="button"
+                            onClick={() => setIsDrawingMode((prev) => !prev)}
+                            className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                              isDrawingMode
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            <span>✏️</span>
+                            <span>{isDrawingMode ? 'Drawing Active (Tap Map)' : 'Draw Boundaries'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBoundaryPoints([])}
+                            disabled={boundaryPoints.length === 0}
+                            className="px-3.5 py-2 rounded-full text-xs font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-40 disabled:hover:bg-transparent transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                          >
+                            <span>🗑️</span>
+                            <span>Clear Shape</span>
+                          </button>
+                          {boundaryPoints.length > 0 && (
+                            <span className="text-[11px] font-mono font-semibold text-gray-600 pr-2">
+                              {boundaryPoints.length} pts
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                     <button
                       type="button"
                       onClick={() => setIsMapExpanded(!isMapExpanded)}
@@ -1196,7 +1250,17 @@ export default function CreateListing({
                         icon={DRAGGABLE_PIN_ICON}
                       />
 
-                      <MapClickHandler onLocationChange={updateCoordinates} />
+                      <MapClickHandler onLocationChange={updateCoordinates} disabled={isDrawingMode} />
+                      <MapDrawEvents isDrawing={isDrawingMode} setPoints={setBoundaryPoints} />
+
+                      {/* Current boundary polygon shape being drawn */}
+                      {boundaryPoints.length > 0 && (
+                        <Polygon
+                          positions={boundaryPoints}
+                          pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.2, weight: 3 }}
+                        />
+                      )}
+
                       {/* Leaflet MapUpdater Component */}
                       <MapUpdater center={markerPosition} />
                       <InvalidateSizeEffect isExpanded={isMapExpanded} />

@@ -3,6 +3,7 @@ import {
   MapContainer,
   TileLayer,
   Marker,
+  Polygon,
   Popup,
   useMapEvents,
   useMap,
@@ -14,6 +15,22 @@ import MagicSearchBar from './MagicSearchBar';
 import { getOptimizedImageUrl } from '../utils/cloudinary';
 import { normalizeListing } from '../lib/storage';
 import { supabase } from '../lib/supabase';
+
+// Helper component to auto-fly and zoom directly into polygon boundaries
+function BoundaryFocuser({ boundaries }) {
+  const map = useMap();
+  useEffect(() => {
+    if (Array.isArray(boundaries) && boundaries.length > 2) {
+      try {
+        const bounds = L.latLngBounds(boundaries);
+        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 19, animate: true });
+      } catch (err) {
+        console.warn('Boundary fitBounds error:', err);
+      }
+    }
+  }, [map, boundaries]);
+  return null;
+}
 
 // --- Fix Leaflet default icon issues in Vite ---
 delete L.Icon.Default.prototype._getIconUrl;
@@ -153,15 +170,21 @@ function LocateButton() {
 export default function MapPage({
   listings: propListings,
   onMarkerClick,
+  activeListing: propActiveListing,
+  flyToBoundaries,
   pickMode,
   onPickLocation,
   onSearchChange,
   searchQuery: externalSearchQuery,
 }) {
   const mapRef = useRef(null);
+  const [internalActiveListing, setInternalActiveListing] = useState(null);
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
   // 1. Store listings in a state variable
   const [listings, setListings] = useState([]);
+
+  const activeListing =
+    propActiveListing !== undefined ? propActiveListing : internalActiveListing;
 
   // 1. Fetch ALL listings from Supabase on mount
   useEffect(() => {
@@ -296,7 +319,43 @@ export default function MapPage({
           />
         )}
 
-        {/* 2. Map over the listings array */}
+        {/* 2. If activeListing has land_boundaries, render premium glowing Polygon */}
+        {(() => {
+          const rawBoundaries = activeListing?.land_boundaries || activeListing?.landBoundaries;
+          if (Array.isArray(rawBoundaries) && rawBoundaries.length > 2) {
+            return (
+              <>
+                {/* Outer Glow Stroke */}
+                <Polygon
+                  positions={rawBoundaries}
+                  pathOptions={{
+                    color: '#f59e0b',
+                    weight: 8,
+                    opacity: 0.45,
+                    fillOpacity: 0,
+                  }}
+                />
+                {/* Core Gold Polygon */}
+                <Polygon
+                  positions={rawBoundaries}
+                  pathOptions={{
+                    color: '#d97706',
+                    weight: 3,
+                    fillColor: '#fbbf24',
+                    fillOpacity: 0.35,
+                    dashArray: '6, 6',
+                  }}
+                />
+              </>
+            );
+          }
+          return null;
+        })()}
+
+        {/* Auto fly/zoom into polygon boundaries if requested */}
+        <BoundaryFocuser boundaries={flyToBoundaries} />
+
+        {/* 3. Map over the listings array */}
         {displayedListings.map((listing) => {
           // CRITICAL: Only render a <Marker> if the listing has valid coordinates
           if (!listing.lat || !listing.lng) return null;
@@ -321,6 +380,14 @@ export default function MapPage({
             '';
           const pinImgUrl = rawImg ? getOptimizedImageUrl(rawImg, 'pin') : '';
 
+          const handlePinSelect = () => {
+            const normalized = normalizeListing ? normalizeListing(listing) : listing;
+            setInternalActiveListing(normalized);
+            if (onMarkerClick) {
+              onMarkerClick(normalized);
+            }
+          };
+
           return (
             <Marker
               key={listing.id || `${lat}-${lng}`}
@@ -328,9 +395,7 @@ export default function MapPage({
               zIndexOffset={isPremium ? 1000 : 0}
               icon={createCustomMarkerIcon(listing, isPremium)}
               eventHandlers={{
-                click: () =>
-                  onMarkerClick &&
-                  onMarkerClick(normalizeListing ? normalizeListing(listing) : listing),
+                click: handlePinSelect,
               }}
             >
               <Popup
@@ -340,10 +405,7 @@ export default function MapPage({
                 closeButton={false}
               >
                 <div
-                  onClick={() =>
-                    onMarkerClick &&
-                    onMarkerClick(normalizeListing ? normalizeListing(listing) : listing)
-                  }
+                  onClick={handlePinSelect}
                   className="cursor-pointer w-full max-w-[210px] overflow-hidden text-left font-sans select-none rounded-2xl"
                 >
                   {pinImgUrl ? (
