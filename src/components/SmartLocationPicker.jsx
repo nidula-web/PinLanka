@@ -231,6 +231,11 @@ export default function SmartLocationPicker({
           <Autocomplete
             apiKey={googleApiKey}
             onPlaceSelected={handlePlaceSelected}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+              }
+            }}
             options={{
               types: ['geocode', 'establishment'],
               componentRestrictions: { country: 'lk' },
