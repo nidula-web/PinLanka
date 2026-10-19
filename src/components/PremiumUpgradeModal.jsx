@@ -14,6 +14,7 @@ import {
 import toast, { Toaster } from 'react-hot-toast';
 import { updateListing } from '../lib/storage';
 import { uploadImage } from '../lib/uploadImage';
+import { supabase } from '../lib/supabase';
 
 /**
  * Dynamic pricing helper function:
@@ -109,25 +110,45 @@ export default function PremiumUpgradeModal({
 
   const handleSubmitPaymentSlip = async (e) => {
     e.preventDefault();
-
-    if (!uploadedSlipUrl) {
-      toast.error('Please wait for the payment slip to finish uploading to Cloudinary.');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      // STRICT REQUIREMENT:
-      // DO NOT set is_premium to true.
-      // Set premium_status to 'pending' and payment_slip_url to uploaded Cloudinary URL.
-      const updated = await updateListing(listing.id, {
-        premium_status: 'pending',
-        premiumStatus: 'pending',
-        payment_slip_url: uploadedSlipUrl,
-        paymentSlipUrl: uploadedSlipUrl,
-      });
+      // 1. Strict Cloudinary check: ensure Cloudinary URL is not null/undefined
+      const cloudinaryUrl = uploadedSlipUrl;
+      if (!cloudinaryUrl) {
+        throw new Error('Image upload failed.');
+      }
 
+      if (!listing?.id) {
+        throw new Error('Listing ID is missing.');
+      }
+
+      // 2. Perform the Supabase update
+      const { data, error } = await supabase
+        .from('listings')
+        .update({
+          premium_status: 'pending',
+          payment_slip_url: cloudinaryUrl,
+        })
+        .eq('id', listing.id)
+        .select();
+
+      // 3. IMMEDIATELY check for error
+      if (error) throw error;
+
+      // Also sync local storage so subscribers and storage stay in sync
+      try {
+        await updateListing(listing.id, {
+          premium_status: 'pending',
+          premiumStatus: 'pending',
+          payment_slip_url: cloudinaryUrl,
+          paymentSlipUrl: cloudinaryUrl,
+        });
+      } catch (storageErr) {
+        console.warn('Storage sync warning:', storageErr);
+      }
+
+      // 4. Only if the Supabase update is 100% successful:
       // Show success toast
       toast.success('Slip uploaded! Awaiting admin approval (2-4 hours).', {
         duration: 5000,
@@ -142,22 +163,25 @@ export default function PremiumUpgradeModal({
         },
       });
 
-      // Refresh listings in dashboard
+      // 5. Trigger a refresh of the user's dashboard listings so they see the yellow "⏳ Golden Pin Pending" badge
+      const updatedListing = (data && data[0]) || {
+        ...listing,
+        premium_status: 'pending',
+        premiumStatus: 'pending',
+        payment_slip_url: cloudinaryUrl,
+        paymentSlipUrl: cloudinaryUrl,
+      };
+
       if (onUpgradeSuccess) {
-        onUpgradeSuccess(updated || {
-          ...listing,
-          premium_status: 'pending',
-          premiumStatus: 'pending',
-          payment_slip_url: uploadedSlipUrl,
-          paymentSlipUrl: uploadedSlipUrl,
-        });
+        onUpgradeSuccess(updatedListing);
       }
 
-      // Close modal
+      // 6. Close modal
       handleModalClose();
-    } catch (err) {
-      console.error('Bank transfer submission failed:', err);
-      toast.error('Failed to submit slip: ' + (err.message || 'Please try again.'));
+    } catch (error) {
+      console.error('Upgrade Error:', error);
+      toast.error(error.message || 'Failed to submit payment slip.');
+      // DO NOT close the modal and DO NOT update the local UI state if there is an error
     } finally {
       setIsSubmitting(false);
     }
