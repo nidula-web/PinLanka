@@ -69,6 +69,7 @@ export default function AdminDashboard({
   // Data states
   const [allListings, setAllListings] = useState([]);
   const [pendingListings, setPendingListings] = useState([]);
+  const [userList, setUserList] = useState([]);
   const [usersList, setUsersList] = useState([]);
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -104,10 +105,11 @@ export default function AdminDashboard({
     try {
       setLoading(true);
 
-      // 1. Fetch ALL users
+      // 1. Fetch ALL users (profiles)
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id');
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;
 
@@ -122,9 +124,12 @@ export default function AdminDashboard({
       const allListings = listingsData || [];
       const pending = allListings.filter((listing) => listing.premium_status === 'pending');
       const activePremium = allListings.filter((listing) => listing.is_premium === true);
+      const profiles = profilesData || [];
 
       // 4. Update state
-      setTotalUsers(profilesData?.length || 0);
+      setUserList(profiles);
+      setUsersList(profiles);
+      setTotalUsers(profiles.length);
       setTotalListings(allListings.length);
       setPendingApprovals(pending);
       setActiveGoldenPins(activePremium.length);
@@ -133,7 +138,7 @@ export default function AdminDashboard({
       setAllListings(allListings);
       setPendingListings(pending);
       setStats({
-        totalUsers: profilesData?.length || 0,
+        totalUsers: profiles.length,
         totalListings: allListings.length,
         activePremium: activePremium.length,
         pendingApprovals: pending.length,
@@ -726,6 +731,90 @@ export default function AdminDashboard({
                 })}
               </div>
             )}
+
+            {/* REGISTERED USERS SECTION (Below stats and pending approvals) */}
+            <div className="mt-8 bg-white rounded-2xl border border-gray-200/90 shadow-xs overflow-hidden">
+              <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between gap-3 bg-gray-50/50">
+                <div>
+                  <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
+                    <Users size={16} className="text-blue-600" />
+                    <span>Registered Users</span>
+                    <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
+                      {userList.length}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Platform user accounts, contact details, and registration dates
+                  </p>
+                </div>
+              </div>
+
+              {userList.length === 0 ? (
+                <div className="p-8 text-center text-gray-400 text-xs">
+                  No registered users found.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/80 text-gray-500 font-bold border-b border-gray-100">
+                        <th className="py-3 px-4">Avatar</th>
+                        <th className="py-3 px-4">Full Name</th>
+                        <th className="py-3 px-4">Email</th>
+                        <th className="py-3 px-4">Phone</th>
+                        <th className="py-3 px-4">Joined Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {userList.map((usr) => {
+                        const avatar = usr.avatar_url || usr.avatarUrl;
+                        const name = usr.full_name || usr.name || 'Anonymous User';
+                        const email = usr.email || 'N/A';
+                        const phone = usr.phone || usr.seller_phone || 'N/A';
+                        const joined = usr.created_at
+                          ? new Date(usr.created_at).toLocaleDateString('en-GB', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })
+                          : 'N/A';
+
+                        return (
+                          <tr key={usr.id} className="hover:bg-gray-50/80 transition-colors">
+                            <td className="py-3 px-4">
+                              {avatar ? (
+                                <img
+                                  src={avatar}
+                                  alt={name}
+                                  className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-blue-500 text-white font-bold flex items-center justify-center text-xs">
+                                  {name.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 font-bold text-gray-900">
+                              <div className="flex items-center gap-1.5">
+                                <span>{name}</span>
+                                {usr.is_admin && (
+                                  <span className="text-[10px] font-black bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
+                                    ADMIN
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-gray-600 font-mono text-[11px]">{email}</td>
+                            <td className="py-3 px-4 text-gray-600 font-medium">{phone}</td>
+                            <td className="py-3 px-4 text-gray-500">{joined}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

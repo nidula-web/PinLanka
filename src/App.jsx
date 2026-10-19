@@ -10,6 +10,11 @@ import ProfilePage from './components/ProfilePage';
 import SellerProfilePage from './components/SellerProfilePage';
 import AdminDashboard from './components/AdminDashboard';
 import MyListings from './components/MyListings';
+import NotificationBell from './components/NotificationBell';
+import ContactUs from './components/ContactUs';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import TermsOfService from './components/TermsOfService';
+import Footer from './components/Footer';
 import {
   subscribeListings,
   saveListing,
@@ -269,6 +274,9 @@ export default function App() {
               <span className="hidden xs:inline">My Ads</span>
             </button>
 
+            {/* Notification Bell */}
+            <NotificationBell user={user} />
+
             {user ? (
               <button
                 onClick={() => setShowProfile(true)}
@@ -308,7 +316,7 @@ export default function App() {
         </div>
 
         {/* Row 2: Integrated Category Navigation & Filters (only for marketplace views) */}
-        {location.pathname !== '/admin' && (
+        {!['/admin', '/contact', '/privacy', '/terms'].includes(location.pathname) && (
           <div className="px-4 pb-2.5 pt-0.5 border-t border-gray-100/70">
             <FilterBar
               activeCategory={activeCategory}
@@ -345,6 +353,11 @@ export default function App() {
           }
         />
 
+        {/* Static Content Routes */}
+        <Route path="/contact" element={<ContactUs />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
+
         {/* Main Marketplace */}
         <Route
           path="*"
@@ -368,7 +381,7 @@ export default function App() {
 
               {/* Floating View Toggle Button: [🗺️ Map] | [📄 List] */}
               {!pickMode && !selectedListing && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto">
+                <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto">
                   <div className="bg-gray-950/90 backdrop-blur-md p-1 rounded-full shadow-2xl border border-white/10 flex items-center gap-0.5 ring-1 ring-black/20">
                     <button
                       onClick={() => setViewMode('map')}
@@ -409,6 +422,9 @@ export default function App() {
           }
         />
       </Routes>
+
+      {/* App Footer */}
+      <Footer />
 
       {/* Bottom sheet */}
       <ListingDetailSheet

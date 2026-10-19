@@ -89,19 +89,19 @@ export default function PremiumUpgradeModal({
       setSlipPreview('');
     }
 
-    // Immediately upload to Cloudinary so we can strictly verify the upload
+    // Immediately upload so we can strictly verify the upload
     setIsUploadingSlip(true);
     setUploadedSlipUrl('');
     try {
       const url = await uploadImage(file);
       if (!url) {
-        throw new Error('Cloudinary did not return a valid URL.');
+        throw new Error('Upload service did not return a valid URL.');
       }
       setUploadedSlipUrl(url);
-      toast.success('Payment slip uploaded to Cloudinary!', { id: 'slip-success' });
+      toast.success('Payment slip uploaded securely!', { id: 'slip-success', duration: 4000 });
     } catch (err) {
       console.error('Slip upload failed:', err);
-      toast.error('Failed to upload slip to Cloudinary: ' + (err.message || 'Please try again.'));
+      toast.error('Failed to upload payment slip: ' + (err.message || 'Please try again.'));
       setUploadedSlipUrl('');
     } finally {
       setIsUploadingSlip(false);
@@ -149,9 +149,9 @@ export default function PremiumUpgradeModal({
       }
 
       // 4. Only if the Supabase update is 100% successful:
-      // Show success toast
+      // Show success toast with explicit 4 second auto-dismiss
       toast.success('Slip uploaded! Awaiting admin approval (2-4 hours).', {
-        duration: 5000,
+        duration: 4000,
         icon: '⏳',
         style: {
           background: '#1e293b',
@@ -197,7 +197,6 @@ export default function PremiumUpgradeModal({
 
   return (
     <div className="fixed inset-0 z-[6000] flex items-center justify-center p-3 sm:p-4">
-      <Toaster position="top-right" />
 
       {/* Backdrop */}
       <div
@@ -301,7 +300,7 @@ export default function PremiumUpgradeModal({
                 {uploadedSlipUrl && (
                   <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
                     <CheckCircle2 size={13} />
-                    <span>Uploaded to Cloudinary</span>
+                    <span>Payment slip uploaded</span>
                   </span>
                 )}
               </label>
@@ -325,7 +324,7 @@ export default function PremiumUpgradeModal({
                   <div className="flex flex-col items-center gap-2 py-2">
                     <Loader2 size={24} className="animate-spin text-amber-600" />
                     <p className="text-xs font-bold text-amber-900">
-                      Uploading slip to Cloudinary...
+                      Uploading secure payment slip...
                     </p>
                     <p className="text-[10px] text-gray-500">
                       Please wait a moment while we process your file
@@ -368,7 +367,7 @@ export default function PremiumUpgradeModal({
               </label>
             </div>
 
-            {/* Submit Button - MUST be disabled until slip is uploaded to Cloudinary */}
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={!uploadedSlipUrl || isUploadingSlip || isSubmitting}
@@ -386,7 +385,7 @@ export default function PremiumUpgradeModal({
               ) : isUploadingSlip ? (
                 <>
                   <Loader2 size={18} className="animate-spin text-gray-400" />
-                  <span>Uploading Slip to Cloudinary...</span>
+                  <span>Uploading secure payment slip...</span>
                 </>
               ) : !uploadedSlipUrl ? (
                 <span>Upload Payment Slip to Submit</span>
