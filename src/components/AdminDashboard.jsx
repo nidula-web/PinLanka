@@ -64,6 +64,7 @@ export default function AdminDashboard({
   const [totalListings, setTotalListings] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [activeGoldenPins, setActiveGoldenPins] = useState(0);
 
   // Data states
   const [allListings, setAllListings] = useState([]);
@@ -99,91 +100,48 @@ export default function AdminDashboard({
     );
   };
 
-  // Robust Admin Data Fetching (Listings, Profiles, Pending Approvals)
   const fetchAdminData = async () => {
-    setLoading(true);
-    setError(null);
-    setRefreshing(true);
     try {
-      if (!isSupabaseConfigured || !supabase) {
-        console.warn('Supabase is not configured.');
-        setError('Supabase is not configured. Please check your environment variables.');
-        setTotalListings(0);
-        setTotalUsers(0);
-        setPendingApprovals([]);
-        setPendingListings([]);
-        setAllListings([]);
-        setUsersList([]);
-        setStats({
-          totalUsers: 0,
-          totalListings: 0,
-          activePremium: 0,
-          pendingApprovals: 0,
-        });
-        return;
-      }
+      setLoading(true);
 
-      // Fetch 1: All listings
-      const { data: listings, error: listingsError } = await supabase
+      // 1. Fetch ALL users
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id');
+
+      if (profilesError) throw profilesError;
+
+      // 2. Fetch ALL listings (ABSOLUTELY NO FILTERS HERE)
+      const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
         .select('*');
 
-      // Fetch 2: All profiles
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*');
+      if (listingsError) throw listingsError;
 
-      if (listingsError || profilesError) {
-        const errMsg = listingsError?.message || profilesError?.message || 'Failed to fetch admin data';
-        console.error('AdminDashboard fetch error:', listingsError || profilesError);
-        setError(errMsg);
-        return;
-      }
+      // 3. Process the data
+      const allListings = listingsData || [];
+      const pending = allListings.filter((listing) => listing.premium_status === 'pending');
+      const activePremium = allListings.filter((listing) => listing.is_premium === true);
 
-      // Check local storage listings as well
-      const localItems = getStoredLocalListings();
-
-      let validListings = listings || [];
-      // If Supabase returned 0 listings, include local listings created in the browser
-      if (validListings.length === 0 && localItems && localItems.length > 0) {
-        validListings = localItems;
-      } else if (localItems && localItems.length > 0) {
-        // Merge any pending approvals from local storage that might not be in Supabase
-        const pendingLocal = localItems.filter(
-          (l) => l.premium_status === 'pending' && !validListings.some((sl) => sl.id === l.id)
-        );
-        if (pendingLocal.length > 0) {
-          validListings = [...validListings, ...pendingLocal];
-        }
-      }
-
-      const validProfiles = profiles || [];
-      const pending = validListings.filter((l) => l.premium_status === 'pending');
-
-      // Update states as requested
-      setTotalListings(validListings.length);
-      setTotalUsers(validProfiles.length);
+      // 4. Update state
+      setTotalUsers(profilesData?.length || 0);
+      setTotalListings(allListings.length);
       setPendingApprovals(pending);
+      setActiveGoldenPins(activePremium.length);
 
-      // Keep listing & user collections in sync
-      setAllListings(validListings);
+      // Keep supporting UI collections & stats in sync
+      setAllListings(allListings);
       setPendingListings(pending);
-      setUsersList(validProfiles);
       setStats({
-        totalUsers: validProfiles.length,
-        totalListings: validListings.length,
-        activePremium: validListings.filter(isListingPremiumActive).length,
+        totalUsers: profilesData?.length || 0,
+        totalListings: allListings.length,
+        activePremium: activePremium.length,
         pendingApprovals: pending.length,
       });
+      setError(null);
     } catch (err) {
-      console.error('Failed to load admin dashboard data from Supabase:', err);
-      setError(err.message || 'Unexpected error fetching admin data');
-      setPendingApprovals([]);
-      setPendingListings([]);
-      setAllListings([]);
-      setUsersList([]);
-      setTotalListings(0);
-      setTotalUsers(0);
+      console.error("Admin fetch error:", err);
+      setError(err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
