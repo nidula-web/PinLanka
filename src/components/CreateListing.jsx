@@ -257,21 +257,32 @@ export default function CreateListing({
 
   // Initialize Google PlacesService via @googlemaps/js-api-loader
   useEffect(() => {
-    const loader = new Loader({
-      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-      version: 'weekly',
-      libraries: ['places'],
-    });
+    try {
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        console.error('Missing Google Maps API Key in .env');
+        return;
+      }
 
-    loader
-      .load()
-      .then(() => {
-        // Google PlacesService requires a dummy HTML element to initialize
-        const dummyElement = document.createElement('div');
-        const service = new window.google.maps.places.PlacesService(dummyElement);
-        setPlacesService(service);
-      })
-      .catch((err) => console.error('Google Maps script failed to load:', err));
+      const loader = new Loader({
+        apiKey: apiKey,
+        version: 'weekly',
+        libraries: ['places'],
+      });
+
+      loader
+        .load()
+        .then(() => {
+          if (window.google?.maps?.places?.PlacesService) {
+            const dummyElement = document.createElement('div');
+            const service = new window.google.maps.places.PlacesService(dummyElement);
+            setPlacesService(service);
+          }
+        })
+        .catch((err) => console.error('Google Maps script failed to load:', err));
+    } catch (error) {
+      console.error('Loader crash:', error);
+    }
   }, []);
 
   // Images & submit state
