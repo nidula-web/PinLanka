@@ -17,7 +17,11 @@ const Autocomplete =
     : GoogleAutocomplete?.default && (typeof GoogleAutocomplete.default === 'function' || GoogleAutocomplete.default?.$$typeof)
     ? GoogleAutocomplete.default
     : function AutocompleteFallback({ onPlaceSelected, apiKey, options, ...rest }) {
-        const { ref } = usePlacesWidget({ apiKey, onPlaceSelected, options });
+        const { ref } = usePlacesWidget({
+          apiKey: apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+          onPlaceSelected,
+          options,
+        });
         return <input ref={ref} {...rest} />;
       };
 import {
@@ -230,7 +234,7 @@ export default function SmartLocationPicker({
         {/* Google Places Autocomplete Input */}
         <div className="relative flex-1">
           <Autocomplete
-            apiKey={googleApiKey}
+            apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
             onPlaceSelected={handlePlaceSelected}
             options={{
               types: ['geocode', 'establishment'],
