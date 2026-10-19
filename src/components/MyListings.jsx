@@ -38,17 +38,12 @@ export default function MyListings({
 
   const uid = user?.id || user?.uid;
 
-  // Filter listings belonging to this user
+  // Filter listings belonging strictly to this user - no dummy fallback arrays
   const userListings = useMemo(() => {
-    if (!uid) {
-      // In guest / demo mode, show local guest listings or fallback to sample listings
-      const guestListings = localListings.filter(
-        (l) => l.sellerId === 'guest' || !l.sellerId || l.id?.startsWith('local_')
-      );
-      return guestListings.length > 0 ? guestListings : localListings.slice(0, 4);
-    }
-    const myOwn = localListings.filter((l) => l.sellerId === uid || l.user_id === uid);
-    return myOwn.length > 0 ? myOwn : localListings.slice(0, 3);
+    if (!uid) return [];
+    return localListings.filter(
+      (l) => l.sellerId === uid || l.seller_id === uid || l.user_id === uid
+    );
   }, [localListings, uid]);
 
   const premiumCount = useMemo(() => {
@@ -161,8 +156,33 @@ export default function MyListings({
         </div>
 
         {/* Listing Cards List */}
-        <div className="space-y-3.5">
-          {userListings.map((item) => {
+        {userListings.length === 0 ? (
+          <div className="bg-white rounded-3xl p-12 border border-gray-200/80 text-center shadow-xs">
+            <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3 text-2xl">
+              📦
+            </div>
+            <h3 className="text-base font-bold text-gray-900 mb-1">
+              No Ads Posted Yet
+            </h3>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto mb-4">
+              You have not posted any listings yet. Post your property, vehicle, or item to reach buyers across Sri Lanka!
+            </p>
+            {onPostAd && (
+              <button
+                onClick={() => {
+                  onBack();
+                  onPostAd();
+                }}
+                className="inline-flex items-center gap-1.5 bg-gray-950 hover:bg-gray-800 text-white text-xs font-bold px-4 py-2 rounded-full shadow-xs transition-all cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>Post Your First Ad</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3.5">
+            {userListings.map((item) => {
             const isExpired = isListingPremiumExpired(item);
             const isPremium = !isExpired && isListingPremiumActive(item);
             const premiumStatus = item.premium_status || item.premiumStatus;
@@ -329,7 +349,8 @@ export default function MyListings({
             </div>
           );
         })}
-        </div>
+          </div>
+        )}
       </main>
 
       {/* Dynamic Pricing Premium Upgrade Modal */}

@@ -33,7 +33,6 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import {
   updateListing,
   deleteListing,
-  SEED_LISTINGS,
   isListingPremiumActive,
 } from '../lib/storage';
 import { getOptimizedImageUrl } from '../utils/cloudinary';
@@ -86,127 +85,91 @@ export default function AdminDashboard({
     }
   };
 
+  const isValidUuid = (id) => {
+    return (
+      typeof id === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    );
+  };
+
   // Fetch Dashboard Data (Listings, Profiles, Stats)
-  // STRICT FIX: DO NOT filter queries by user_id. Fetch ALL rows.
+  // STRICT SUPABASE FETCHING: Rely 100% on actual Supabase data. No fallback arrays.
   const fetchDashboardData = async () => {
     setRefreshing(true);
     try {
-      if (isSupabaseConfigured && supabase) {
-        // 1. Fetch ALL Listings (NO user_id filter)
-        const { data: listingsData, error: listingsError } = await supabase
-          .from('listings')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (listingsError) {
-          console.warn('Supabase fetch listings error:', listingsError);
-        }
-
-        // 2. Fetch ALL Pending Approvals directly (NO user_id filter)
-        const { data: pendingData, error: pendingError } = await supabase
-          .from('listings')
-          .select('*')
-          .eq('premium_status', 'pending');
-
-        if (pendingError) {
-          console.warn('Supabase fetch pending error:', pendingError);
-        }
-
-        // 3. Fetch ALL Profiles (NO user_id filter)
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (profilesError) {
-          console.warn('Supabase fetch profiles error:', profilesError);
-        }
-
-        // Merge with local storage listings if available
-        const raw =
-          localStorage.getItem('selinmap_marketplace_listings') ||
-          localStorage.getItem('pinlanka_marketplace_listings');
-        const localListings = raw ? JSON.parse(raw) : [];
-
-        // Build combined map of all listings
-        const listingsMap = new Map();
-        (listingsData || []).forEach((l) => listingsMap.set(l.id, l));
-        localListings.forEach((l) => {
-          if (!listingsMap.has(l.id)) {
-            listingsMap.set(l.id, l);
-          } else {
-            const existing = listingsMap.get(l.id);
-            if (l.premium_status === 'pending' || l.premiumStatus === 'pending') {
-              listingsMap.set(l.id, { ...existing, ...l });
-            }
-          }
-        });
-
-        const currentListings = Array.from(listingsMap.values());
-        const currentUsers = profilesData || [];
-
-        setAllListings(currentListings);
-        setUsersList(currentUsers);
-
-        // Pending Golden Pin Approvals (combining direct query, current listings, and local listings)
-        const pendingMap = new Map();
-        (pendingData || []).forEach((l) => pendingMap.set(l.id, l));
-        currentListings.forEach((l) => {
-          if (
-            (l.premium_status === 'pending' || l.premiumStatus === 'pending') &&
-            Boolean(l.payment_slip_url || l.paymentSlipUrl)
-          ) {
-            pendingMap.set(l.id, l);
-          }
-        });
-        localListings.forEach((l) => {
-          if (
-            (l.premium_status === 'pending' || l.premiumStatus === 'pending') &&
-            Boolean(l.payment_slip_url || l.paymentSlipUrl)
-          ) {
-            pendingMap.set(l.id, l);
-          }
-        });
-
-        const pending = Array.from(pendingMap.values());
-        setPendingListings(pending);
-
-        // Count Active Golden Pins using isListingPremiumActive helper
-        const activePremCount = currentListings.filter(isListingPremiumActive).length;
-
+      if (!isSupabaseConfigured || !supabase) {
+        console.warn('Supabase is not configured.');
+        setPendingListings([]);
+        setAllListings([]);
+        setUsersList([]);
         setStats({
-          totalUsers: currentUsers.length || (localListings.length > 0 ? 12 : 1),
-          totalListings: currentListings.length,
-          activePremium: activePremCount,
-          pendingApprovals: pending.length,
+          totalUsers: 0,
+          totalListings: 0,
+          activePremium: 0,
+          pendingApprovals: 0,
         });
-      } else {
-        // Local Mode / Demo Data
-        const raw =
-          localStorage.getItem('selinmap_marketplace_listings') ||
-          localStorage.getItem('pinlanka_marketplace_listings');
-        const localListings = raw ? JSON.parse(raw) : SEED_LISTINGS;
-        setAllListings(localListings);
-
-        const pending = localListings.filter(
-          (l) =>
-            (l.premium_status === 'pending' || l.premiumStatus === 'pending') &&
-            Boolean(l.payment_slip_url || l.paymentSlipUrl)
-        );
-        setPendingListings(pending);
-
-        const activePremCount = localListings.filter(isListingPremiumActive).length;
-
-        setStats({
-          totalUsers: 14,
-          totalListings: localListings.length,
-          activePremium: activePremCount,
-          pendingApprovals: pending.length,
-        });
+        return;
       }
+
+      // 1. Strictly fetch pending listings from Supabase
+      const { data: pendingData, error: pendingError } = await supabase
+        .from('listings')
+        .select('*')
+        .eq('premium_status', 'pending');
+
+      if (pendingError) {
+        console.error('Supabase error fetching pending listings:', pendingError);
+        setPendingListings([]);
+      } else {
+        // Strictly populated by result of supabase query; no fallback arrays
+        setPendingListings(pendingData || []);
+      }
+
+      // 2. Strictly fetch all listings from Supabase
+      const { data: listingsData, error: listingsError } = await supabase
+        .from('listings')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (listingsError) {
+        console.error('Supabase error fetching all listings:', listingsError);
+        setAllListings([]);
+      } else {
+        setAllListings(listingsData || []);
+      }
+
+      // 3. Strictly fetch profiles from Supabase
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (profilesError) {
+        console.error('Supabase error fetching profiles:', profilesError);
+        setUsersList([]);
+      } else {
+        setUsersList(profilesData || []);
+      }
+
+      const validListings = listingsData || [];
+      const validPending = pendingData || [];
+      const validProfiles = profilesData || [];
+
+      // Count active golden pins from real Supabase listings
+      const activePremCount = validListings.filter(isListingPremiumActive).length;
+
+      setStats({
+        totalUsers: validProfiles.length,
+        totalListings: validListings.length,
+        activePremium: activePremCount,
+        pendingApprovals: validPending.length,
+      });
     } catch (err) {
-      console.error('Failed to load admin dashboard data:', err);
+      console.error('Failed to load admin dashboard data from Supabase:', err);
       toast.error('Could not refresh dashboard data.');
+      setPendingListings([]);
+      setAllListings([]);
+      setUsersList([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -231,31 +194,56 @@ export default function AdminDashboard({
   const handleApprove = async (listingId, title) => {
     setActionLoadingId(listingId);
     try {
-      // Set premium_expires_at to exactly 14 days from the current date
+      if (!listingId) {
+        console.error('Approval failed: listingId is null or undefined.');
+        toast.error('Listing ID is missing.');
+        return;
+      }
+
+      // Ensure handleApprove uses the real Supabase UUID from the database
+      if (!isValidUuid(listingId)) {
+        console.error(`Invalid Supabase UUID format: "${listingId}" for listing "${title}"`);
+        toast.error(`Invalid UUID format: "${listingId}". Database update skipped.`);
+        return;
+      }
+
+      // Set premium_expires_at to exactly 14 days from current date
       const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
       if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase
-          .from('listings')
-          .update({
-            is_premium: true,
-            premium_status: 'approved',
-            premium_expires_at: expiresAt,
-          })
-          .eq('id', listingId);
+        try {
+          const { error } = await supabase
+            .from('listings')
+            .update({
+              is_premium: true,
+              premium_status: 'approved',
+              premium_expires_at: expiresAt,
+            })
+            .eq('id', listingId);
 
-        if (error) throw error;
+          if (error) {
+            console.error('Supabase error updating listing in handleApprove:', error);
+            throw error;
+          }
+        } catch (dbErr) {
+          console.error('Database update failed in handleApprove:', dbErr);
+          throw dbErr;
+        }
       }
 
-      // Sync local storage & subscribers
-      await updateListing(listingId, {
-        is_premium: true,
-        isPremium: true,
-        premium_status: 'approved',
-        premiumStatus: 'approved',
-        premium_expires_at: expiresAt,
-        premiumExpiresAt: expiresAt,
-      });
+      // Sync local storage & subscribers safely
+      try {
+        await updateListing(listingId, {
+          is_premium: true,
+          isPremium: true,
+          premium_status: 'approved',
+          premiumStatus: 'approved',
+          premium_expires_at: expiresAt,
+          premiumExpiresAt: expiresAt,
+        });
+      } catch (storageErr) {
+        console.error('Storage sync error:', storageErr);
+      }
 
       // Update UI state
       setPendingListings((prev) => prev.filter((item) => item.id !== listingId));
@@ -300,25 +288,50 @@ export default function AdminDashboard({
   const handleReject = async (listingId, title) => {
     setActionLoadingId(listingId);
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase
-          .from('listings')
-          .update({
-            is_premium: false,
-            premium_status: 'rejected',
-          })
-          .eq('id', listingId);
-
-        if (error) throw error;
+      if (!listingId) {
+        console.error('Rejection failed: listingId is null or undefined.');
+        toast.error('Listing ID is missing.');
+        return;
       }
 
-      // Sync local storage
-      await updateListing(listingId, {
-        is_premium: false,
-        isPremium: false,
-        premium_status: 'rejected',
-        premiumStatus: 'rejected',
-      });
+      // Ensure handleReject uses the real Supabase UUID from the database
+      if (!isValidUuid(listingId)) {
+        console.error(`Invalid Supabase UUID format: "${listingId}" for listing "${title}"`);
+        toast.error(`Invalid UUID format: "${listingId}". Database update skipped.`);
+        return;
+      }
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { error } = await supabase
+            .from('listings')
+            .update({
+              is_premium: false,
+              premium_status: 'rejected',
+            })
+            .eq('id', listingId);
+
+          if (error) {
+            console.error('Supabase error updating listing in handleReject:', error);
+            throw error;
+          }
+        } catch (dbErr) {
+          console.error('Database update failed in handleReject:', dbErr);
+          throw dbErr;
+        }
+      }
+
+      // Sync local storage & subscribers safely
+      try {
+        await updateListing(listingId, {
+          is_premium: false,
+          isPremium: false,
+          premium_status: 'rejected',
+          premiumStatus: 'rejected',
+        });
+      } catch (storageErr) {
+        console.error('Storage sync error:', storageErr);
+      }
 
       // Update UI state
       setPendingListings((prev) => prev.filter((item) => item.id !== listingId));
@@ -572,7 +585,7 @@ export default function AdminDashboard({
                   <CheckCircle2 size={32} />
                 </div>
                 <h3 className="text-base font-bold text-gray-900 mb-1">
-                  All Caught Up!
+                  No pending approvals at the moment.
                 </h3>
                 <p className="text-xs text-gray-500 max-w-sm mx-auto">
                   There are currently no pending Golden Pin bank transfer slips awaiting approval. New requests will appear here in real-time.

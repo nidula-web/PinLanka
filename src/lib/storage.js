@@ -292,13 +292,23 @@ function getStoredLocalListings() {
       raw = localStorage.getItem(LEGACY_STORAGE_KEY);
     }
     if (!raw) {
+      if (isSupabaseConfigured) {
+        return [];
+      }
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(SEED_LISTINGS));
       return SEED_LISTINGS;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : SEED_LISTINGS;
+    if (Array.isArray(parsed)) {
+      if (isSupabaseConfigured) {
+        // Strip out legacy dummy seed listings so they don't corrupt real Supabase state
+        return parsed.filter((item) => item.id && !String(item.id).startsWith('seed-'));
+      }
+      return parsed;
+    }
+    return [];
   } catch {
-    return SEED_LISTINGS;
+    return [];
   }
 }
 
@@ -362,8 +372,11 @@ export async function getListings() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (data && !error && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         return data.map(normalizeListing);
+      }
+      if (error) {
+        console.error('Supabase getListings error:', error);
       }
     } catch (err) {
       console.warn('Supabase getListings error, returning local listings:', err);
@@ -446,62 +459,72 @@ export async function updateListing(id, updates) {
   const current = getStoredLocalListings();
 
   if (isSupabaseConfigured && supabase) {
-    try {
-      const payload = {};
-      if (updates.isPremium !== undefined) payload.is_premium = Boolean(updates.isPremium);
-      if (updates.is_premium !== undefined) payload.is_premium = Boolean(updates.is_premium);
-      if (updates.premiumStatus !== undefined) payload.premium_status = updates.premiumStatus;
-      if (updates.premium_status !== undefined) payload.premium_status = updates.premium_status;
-      if (updates.paymentSlipUrl !== undefined) payload.payment_slip_url = updates.paymentSlipUrl;
-      if (updates.payment_slip_url !== undefined) payload.payment_slip_url = updates.payment_slip_url;
-      if (updates.premiumExpiresAt !== undefined) payload.premium_expires_at = updates.premiumExpiresAt;
-      if (updates.premium_expires_at !== undefined) payload.premium_expires_at = updates.premium_expires_at;
+    const isUUID =
+      typeof id === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-      if (updates.title !== undefined) payload.title = updates.title;
-      if (updates.price !== undefined) payload.price = Number(updates.price);
-      if (updates.priceTag !== undefined) payload.price_tag = updates.priceTag;
-      if (updates.price_tag !== undefined) payload.price_tag = updates.price_tag;
-      if (updates.description !== undefined) payload.description = updates.description;
-      if (updates.mainCategory !== undefined) payload.main_category = updates.mainCategory;
-      if (updates.main_category !== undefined) payload.main_category = updates.main_category;
-      if (updates.subCategory !== undefined) payload.sub_category = updates.subCategory;
-      if (updates.sub_category !== undefined) payload.sub_category = updates.sub_category;
-      if (updates.propertyType !== undefined) payload.property_type = updates.propertyType;
-      if (updates.vehicleType !== undefined) payload.vehicle_type = updates.vehicleType;
-      if (updates.brand !== undefined) payload.brand = updates.brand;
-      if (updates.model !== undefined) payload.model = updates.model;
-      if (updates.year !== undefined) payload.year = updates.year;
-      if (updates.mileage !== undefined) payload.mileage = updates.mileage;
-      if (updates.transmission !== undefined) payload.transmission = updates.transmission;
-      if (updates.condition !== undefined) payload.condition = updates.condition;
-      if (updates.size !== undefined) payload.size = updates.size;
-      if (updates.locationName !== undefined) payload.location_name = updates.locationName;
-      if (updates.location_name !== undefined) payload.location_name = updates.location_name;
-      if (updates.lat !== undefined) payload.lat = Number(updates.lat);
-      if (updates.lng !== undefined) payload.lng = Number(updates.lng);
-      if (updates.imageUrls !== undefined) payload.image_urls = updates.imageUrls;
-      if (updates.image_urls !== undefined) payload.image_urls = updates.image_urls;
-      if (updates.sellerPhone !== undefined) payload.seller_phone = updates.sellerPhone;
-      if (updates.seller_phone !== undefined) payload.seller_phone = updates.seller_phone;
-      if (updates.sellerType !== undefined) payload.seller_type = updates.sellerType;
-      if (updates.seller_type !== undefined) payload.seller_type = updates.seller_type;
+    if (isUUID) {
+      try {
+        const payload = {};
+        if (updates.isPremium !== undefined) payload.is_premium = Boolean(updates.isPremium);
+        if (updates.is_premium !== undefined) payload.is_premium = Boolean(updates.is_premium);
+        if (updates.premiumStatus !== undefined) payload.premium_status = updates.premiumStatus;
+        if (updates.premium_status !== undefined) payload.premium_status = updates.premium_status;
+        if (updates.paymentSlipUrl !== undefined) payload.payment_slip_url = updates.paymentSlipUrl;
+        if (updates.payment_slip_url !== undefined) payload.payment_slip_url = updates.payment_slip_url;
+        if (updates.premiumExpiresAt !== undefined) payload.premium_expires_at = updates.premiumExpiresAt;
+        if (updates.premium_expires_at !== undefined) payload.premium_expires_at = updates.premium_expires_at;
 
-      const { data, error } = await supabase
-        .from('listings')
-        .update(payload)
-        .eq('id', id)
-        .select()
-        .maybeSingle();
+        if (updates.title !== undefined) payload.title = updates.title;
+        if (updates.price !== undefined) payload.price = Number(updates.price);
+        if (updates.priceTag !== undefined) payload.price_tag = updates.priceTag;
+        if (updates.price_tag !== undefined) payload.price_tag = updates.price_tag;
+        if (updates.description !== undefined) payload.description = updates.description;
+        if (updates.mainCategory !== undefined) payload.main_category = updates.mainCategory;
+        if (updates.main_category !== undefined) payload.main_category = updates.main_category;
+        if (updates.subCategory !== undefined) payload.sub_category = updates.subCategory;
+        if (updates.sub_category !== undefined) payload.sub_category = updates.sub_category;
+        if (updates.propertyType !== undefined) payload.property_type = updates.propertyType;
+        if (updates.vehicleType !== undefined) payload.vehicle_type = updates.vehicleType;
+        if (updates.brand !== undefined) payload.brand = updates.brand;
+        if (updates.model !== undefined) payload.model = updates.model;
+        if (updates.year !== undefined) payload.year = updates.year;
+        if (updates.mileage !== undefined) payload.mileage = updates.mileage;
+        if (updates.transmission !== undefined) payload.transmission = updates.transmission;
+        if (updates.condition !== undefined) payload.condition = updates.condition;
+        if (updates.size !== undefined) payload.size = updates.size;
+        if (updates.locationName !== undefined) payload.location_name = updates.locationName;
+        if (updates.location_name !== undefined) payload.location_name = updates.location_name;
+        if (updates.lat !== undefined) payload.lat = Number(updates.lat);
+        if (updates.lng !== undefined) payload.lng = Number(updates.lng);
+        if (updates.imageUrls !== undefined) payload.image_urls = updates.imageUrls;
+        if (updates.image_urls !== undefined) payload.image_urls = updates.image_urls;
+        if (updates.sellerPhone !== undefined) payload.seller_phone = updates.sellerPhone;
+        if (updates.seller_phone !== undefined) payload.seller_phone = updates.seller_phone;
+        if (updates.sellerType !== undefined) payload.seller_type = updates.sellerType;
+        if (updates.seller_type !== undefined) payload.seller_type = updates.seller_type;
 
-      if (!error && data) {
-        const normalized = normalizeListing(data);
-        const updated = current.map((l) => (l.id === id ? { ...l, ...normalized } : l));
-        saveStoredLocalListings(updated);
-        listeners.forEach((cb) => cb(updated));
-        return normalized;
+        const { data, error } = await supabase
+          .from('listings')
+          .update(payload)
+          .eq('id', id)
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          console.error('Supabase updateListing error:', error);
+        } else if (data) {
+          const normalized = normalizeListing(data);
+          const updated = current.map((l) => (l.id === id ? { ...l, ...normalized } : l));
+          saveStoredLocalListings(updated);
+          listeners.forEach((cb) => cb(updated));
+          return normalized;
+        }
+      } catch (err) {
+        console.error('Supabase updateListing exception, updating locally:', err);
       }
-    } catch (err) {
-      console.warn('Supabase updateListing error, updating locally:', err);
+    } else {
+      console.warn('Skipping Supabase updateListing for non-UUID id:', id);
     }
   }
 
@@ -591,11 +614,18 @@ export function isListingPremiumExpired(listing) {
  * Delete a listing by id.
  */
 export async function deleteListing(id) {
-  if (isSupabaseConfigured && supabase) {
+  const isUUID =
+    typeof id === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+  if (isSupabaseConfigured && supabase && isUUID) {
     try {
-      await supabase.from('listings').delete().eq('id', id);
+      const { error } = await supabase.from('listings').delete().eq('id', id);
+      if (error) {
+        console.error('Supabase deleteListing error:', error);
+      }
     } catch (err) {
-      console.warn('Supabase deleteListing error:', err);
+      console.error('Supabase deleteListing exception:', err);
     }
   }
 
