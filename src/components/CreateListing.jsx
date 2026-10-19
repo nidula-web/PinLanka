@@ -8,7 +8,6 @@ import {
   LayersControl,
 } from 'react-leaflet';
 import L from 'leaflet';
-import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import {
   X,
   MapPin,
@@ -250,46 +249,9 @@ export default function CreateListing({
   const [markerPosition, setMarkerPosition] = useState([7.8731, 80.7718]);
   const [searchText, setSearchText] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [placesService, setPlacesService] = useState(null);
   const [isLocating, setIsLocating] = useState(false);
   const [locationFeedback, setLocationFeedback] = useState('');
   const markerRef = useRef(null);
-
-  // Initialize Google PlacesService via @googlemaps/js-api-loader functional API
-  useEffect(() => {
-    let isMounted = true;
-
-    const initGooglePlaces = async () => {
-      try {
-        const apiKey =
-          import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyD9WsGnRKKtbehjrehRer-LKy7R1LcynxY'; // The key is confirmed working
-
-        // 1. Set global options
-        setOptions({
-          apiKey: apiKey,
-          version: 'weekly',
-        });
-
-        // 2. Import the library directly
-        const { PlacesService } = await importLibrary('places');
-
-        if (isMounted) {
-          const dummyElement = document.createElement('div');
-          const service = new PlacesService(dummyElement);
-          setPlacesService(service);
-        }
-      } catch (error) {
-        console.error('Google Places init failed:', error);
-      }
-    };
-
-    initGooglePlaces();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
   // Images & submit state
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -350,40 +312,35 @@ export default function CreateListing({
     }
   };
 
-  /**
-   * Search location via Google PlacesService textSearch (finds POIs, cities, landmarks)
-   */
-  const handleSearchLocation = () => {
-    if (!searchText || !placesService) {
-      console.log('Search blocked: Missing text or placesService.');
-      return;
-    }
-
+  const handleSearchLocation = async () => {
+    if (!searchText) return;
     setIsSearching(true);
-    console.log(`🧠 Asking Google Brain for: "${searchText} Sri Lanka"`);
+    console.log(`🧠 Asking Google Brain (NEW API) for: "${searchText} Sri Lanka"`);
 
-    const request = {
-      query: searchText + ' Sri Lanka',
-    };
+    try {
+      const apiKey =
+        import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyD9WsGnRKKtbehjrehRer-LKy7R1LcynxY';
 
-    placesService.textSearch(request, (results, status) => {
-      setIsSearching(false);
-      console.log('🧠 Google Status Code:', status);
-      console.log('🧠 Google Results Array:', results);
+      const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location',
+        },
+        body: JSON.stringify({
+          textQuery: searchText + ' Sri Lanka',
+        }),
+      });
 
-      // Bypass the global enum and check the string directly to prevent undefined errors
-      if (status === 'OK' && results && results.length > 0) {
-        const place = results[0];
+      const data = await response.json();
+      console.log('🧠 Google New API Response:', data);
 
-        // Handle both function and direct value coordinates
-        const lat =
-          typeof place.geometry.location.lat === 'function'
-            ? place.geometry.location.lat()
-            : place.geometry.location.lat;
-        const lng =
-          typeof place.geometry.location.lng === 'function'
-            ? place.geometry.location.lng()
-            : place.geometry.location.lng;
+      if (data.places && data.places.length > 0) {
+        const place = data.places[0];
+        const lat = place.location.latitude;
+        const lng = place.location.longitude;
+        const name = place.displayName?.text || place.formattedAddress;
 
         console.log(`📍 Found coordinates: Lat ${lat}, Lng ${lng}`);
 
@@ -391,14 +348,17 @@ export default function CreateListing({
         setLat(lat);
         setLng(lng);
         setLocationSelected(true);
-        setNewListing((prev) => ({
-          ...prev,
-          location_name: place.name || place.formatted_address,
-        }));
+        setLocationName(name);
+        setNewListing((prev) => ({ ...prev, location_name: name }));
       } else {
-        alert(`Location not found. Google said: ${status}`);
+        alert('Location not found. Please try a different search term.');
       }
-    });
+    } catch (error) {
+      console.error('Search error:', error);
+      alert('Error connecting to Google.');
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   // Detect current GPS location
@@ -1134,22 +1094,10 @@ export default function CreateListing({
                       <button
                         type="button"
                         onClick={handleSearchLocation}
-                        disabled={isSearching || !placesService}
+                        disabled={isSearching}
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
                       >
-                        {isSearching ? (
-                          <>
-                            <Loader2 size={13} className="animate-spin" />
-                            <span>Searching...</span>
-                          </>
-                        ) : !placesService ? (
-                          <>
-                            <Loader2 size={13} className="animate-spin" />
-                            <span>Loading...</span>
-                          </>
-                        ) : (
-                          <span>Search</span>
-                        )}
+                        {isSearching ? 'Searching...' : 'Search'}
                       </button>
                     </div>
 
