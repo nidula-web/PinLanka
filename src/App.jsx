@@ -10,7 +10,12 @@ import ProfilePage from './components/ProfilePage';
 import SellerProfilePage from './components/SellerProfilePage';
 import AdminDashboard from './components/AdminDashboard';
 import MyListings from './components/MyListings';
-import { subscribeListings, saveListing } from './lib/storage';
+import {
+  subscribeListings,
+  saveListing,
+  getStoredLocalListings,
+  saveStoredLocalListings,
+} from './lib/storage';
 import { onAuthChange, getProfile } from './lib/auth';
 import { isSupabaseConfigured } from './lib/supabase';
 import { Toaster } from 'react-hot-toast';
@@ -140,8 +145,12 @@ export default function App() {
   };
 
   const handleSave = useCallback(async (listing) => {
+    if (listing?.id) {
+      const current = getStoredLocalListings();
+      saveStoredLocalListings([listing, ...current.filter((l) => l.id !== listing.id)]);
+      return;
+    }
     await saveListing(listing);
-    // Real-time subscription will update listings automatically
   }, []);
 
   const handlePickMode = useCallback((callback) => {

@@ -12,7 +12,8 @@ import L from 'leaflet';
 import { LocateFixed } from 'lucide-react';
 import MagicSearchBar from './MagicSearchBar';
 import { getOptimizedImageUrl } from '../utils/cloudinary';
-import { isListingPremiumActive } from '../lib/storage';
+import { normalizeListing } from '../lib/storage';
+import { supabase } from '../lib/supabase';
 
 // --- Fix Leaflet default icon issues in Vite ---
 delete L.Icon.Default.prototype._getIconUrl;
@@ -31,18 +32,45 @@ const CATEGORY_ICONS = {
   others: '📦',
 };
 
-// --- Price bubble marker factory with category emoji, verified broker badge & Golden Pin ---
-function createPriceBubble(priceTag, sellerType, mainCategory, isVerified, isPremium) {
-  const icon = CATEGORY_ICONS[mainCategory] || '📦';
-  const verifiedBadge = (sellerType === 'broker' && isVerified)
-    ? `<span title="Verified Broker" style="display:inline-flex;align-items:center;margin-left:2px;font-size:11px;">🛡️</span>`
-    : '';
+function formatPriceTag(val) {
+  const num = Number(val);
+  if (!num || isNaN(num)) return '';
+  if (num >= 1000000) {
+    const m = num / 1000000;
+    return `${Number(m.toFixed(2))}M`;
+  }
+  if (num >= 1000) {
+    const k = num / 1000;
+    return `${Number(k.toFixed(1))}k`;
+  }
+  return String(num);
+}
 
+/**
+ * Custom L.divIcon marker factory:
+ * - Gold with glowing effect shadow-[0_0_15px_rgba(250,204,21,0.8)] if is_premium and active
+ * - Blue if seller_type === 'broker'
+ * - Green otherwise (Owner)
+ */
+function createCustomMarkerIcon(listing, isPremium) {
+  const sellerType = listing.seller_type || listing.sellerType || 'owner';
+  const mainCategory = listing.main_category || listing.mainCategory || 'others';
+  const icon = CATEGORY_ICONS[mainCategory] || '📦';
+  const priceDisplay =
+    listing.price_tag ||
+    listing.priceTag ||
+    (listing.price ? formatPriceTag(listing.price) : '');
+  const isVerified = Boolean(listing.is_verified || listing.isVerified);
+  const verifiedBadge =
+    sellerType === 'broker' && isVerified
+      ? `<span title="Verified Broker" style="display:inline-flex;align-items:center;margin-left:2px;font-size:11px;">🛡️</span>`
+      : '';
+
+  // 1. Gold with glowing effect: shadow-[0_0_15px_rgba(250,204,21,0.8)]
   if (isPremium) {
-    // Rich Golden Pin styling with glowing pulse animation & star
     return L.divIcon({
-      className: 'golden-pin-marker',
-      html: `<div style="
+      className: 'custom-map-marker golden-pin-marker',
+      html: `<div class="shadow-[0_0_15px_rgba(250,204,21,0.8)]" style="
         background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
         color: #78350f;
         font-weight: 800;
@@ -50,42 +78,44 @@ function createPriceBubble(priceTag, sellerType, mainCategory, isVerified, isPre
         padding: 4.5px 10px;
         border-radius: 20px;
         white-space: nowrap;
-        box-shadow: 0 0 14px rgba(245, 158, 11, 0.9), 0 3px 8px rgba(0,0,0,.35);
+        box-shadow: 0 0 15px rgba(250,204,21,0.8), 0 3px 8px rgba(0,0,0,0.35);
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        border: 2px solid #fff;
+        border: 2px solid #ffffff;
         line-height: 1.3;
-        transform: translate(-50%,-50%);
+        transform: translate(-50%, -50%);
         cursor: pointer;
         animation: goldenGlowPulse 2s infinite ease-in-out;
-      "><span>⭐</span><span>${icon}</span><span style="font-weight:900;letter-spacing:-0.2px;">Rs ${priceTag}</span>${verifiedBadge}</div>`,
+      "><span>⭐</span><span>${icon}</span><span style="font-weight:900;letter-spacing:-0.2px;">${priceDisplay ? `Rs ${priceDisplay}` : ''}</span>${verifiedBadge}</div>`,
       iconSize: [0, 0],
       iconAnchor: [0, 0],
     });
   }
 
-  const bg = sellerType === 'owner' ? '#16a34a' : '#2563eb'; // green for owner, blue for broker/dealer
+  // 2. If listing.seller_type === 'broker', make it Blue. Otherwise, Green (Owner).
+  const isBroker = sellerType === 'broker';
+  const bg = isBroker ? '#2563eb' : '#16a34a';
 
   return L.divIcon({
-    className: '',
+    className: 'custom-map-marker',
     html: `<div style="
-      background:${bg};
-      color:#fff;
-      font-weight:700;
-      font-size:12px;
-      padding:4px 9px;
-      border-radius:20px;
-      white-space:nowrap;
-      box-shadow:0 2px 6px rgba(0,0,0,.35);
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-      border:2px solid #fff;
-      line-height:1.3;
-      transform:translate(-50%,-50%);
-      cursor:pointer;
-    "><span>${icon}</span><span>Rs ${priceTag}</span>${verifiedBadge}</div>`,
+      background: ${bg};
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 4px 9px;
+      border-radius: 20px;
+      white-space: nowrap;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 2px solid #ffffff;
+      line-height: 1.3;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+    "><span>${icon}</span><span>${priceDisplay ? `Rs ${priceDisplay}` : ''}</span>${verifiedBadge}</div>`,
     iconSize: [0, 0],
     iconAnchor: [0, 0],
   });
@@ -121,7 +151,7 @@ function LocateButton() {
 }
 
 export default function MapPage({
-  listings,
+  listings: propListings,
   onMarkerClick,
   pickMode,
   onPickLocation,
@@ -130,6 +160,62 @@ export default function MapPage({
 }) {
   const mapRef = useRef(null);
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
+  // 1. Store listings in a state variable
+  const [listings, setListings] = useState([]);
+
+  // 1. Fetch ALL listings from Supabase on mount
+  useEffect(() => {
+    const fetchMapListings = async () => {
+      try {
+        const { data, error } = await supabase.from('listings').select('*');
+        if (error) {
+          console.error('Error fetching map listings from Supabase:', error);
+          if (propListings && propListings.length > 0) {
+            setListings(propListings);
+          }
+          return;
+        }
+        if (data) {
+          setListings(data);
+        }
+      } catch (err) {
+        console.error('Map listings fetch error:', err);
+        if (propListings && propListings.length > 0) {
+          setListings(propListings);
+        }
+      }
+    };
+
+    fetchMapListings();
+  }, []);
+
+  // Real-time synchronization for changes to Supabase listings table
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:listings:map-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'listings' },
+        async () => {
+          const { data, error } = await supabase.from('listings').select('*');
+          if (!error && data) {
+            setListings(data);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Fallback to propListings if passed and no direct listings fetched yet
+  useEffect(() => {
+    if (propListings && propListings.length > 0 && listings.length === 0) {
+      setListings(propListings);
+    }
+  }, [propListings, listings.length]);
 
   const searchQuery =
     externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
@@ -146,15 +232,16 @@ export default function MapPage({
 
   // Filter listings based on search text (title, description, main_category, location_name)
   const displayedListings = useMemo(() => {
-    if (!searchQuery.trim()) return listings;
+    const sourceList = listings.length > 0 ? listings : (propListings || []);
+    if (!searchQuery.trim()) return sourceList;
     const q = searchQuery.toLowerCase().trim();
-    return listings.filter((l) => {
+    return sourceList.filter((l) => {
       const title = (l.title || '').toLowerCase();
       const description = (l.description || '').toLowerCase();
-      const mainCategory = (l.mainCategory || l.main_category || '').toLowerCase();
-      const locationName = (l.locationName || l.location_name || '').toLowerCase();
-      const propertyType = (l.propertyType || l.property_type || '').toLowerCase();
-      const vehicleType = (l.vehicleType || l.vehicle_type || '').toLowerCase();
+      const mainCategory = (l.main_category || l.mainCategory || '').toLowerCase();
+      const locationName = (l.location_name || l.locationName || '').toLowerCase();
+      const propertyType = (l.property_type || l.propertyType || '').toLowerCase();
+      const vehicleType = (l.vehicle_type || l.vehicleType || '').toLowerCase();
       const brand = (l.brand || '').toLowerCase();
 
       return (
@@ -167,7 +254,7 @@ export default function MapPage({
         brand.includes(q)
       );
     });
-  }, [listings, searchQuery]);
+  }, [listings, propListings, searchQuery]);
 
   return (
     <div className="relative w-full h-full">
@@ -206,25 +293,41 @@ export default function MapPage({
           />
         )}
 
+        {/* 2. Map over the listings array */}
         {displayedListings.map((listing) => {
-          const rawImg = listing.imageUrls?.[0] || listing.imageUrl || '';
+          // CRITICAL: Only render a <Marker> if the listing has valid coordinates
+          if (!listing.lat || !listing.lng) return null;
+
+          // Parse lat and lng as numbers
+          const lat = parseFloat(listing.lat);
+          const lng = parseFloat(listing.lng);
+          if (isNaN(lat) || isNaN(lng)) return null;
+
+          // 3. Golden Pin Logic:
+          // If listing.is_premium === true AND (premium_expires_at is null or in the future)
+          const isPremium =
+            Boolean(listing.is_premium === true || listing.isPremium === true) &&
+            (!listing.premium_expires_at && !listing.premiumExpiresAt
+              ? true
+              : new Date(listing.premium_expires_at || listing.premiumExpiresAt) > new Date());
+
+          const rawImg =
+            (Array.isArray(listing.image_urls) ? listing.image_urls[0] : null) ||
+            (Array.isArray(listing.imageUrls) ? listing.imageUrls[0] : null) ||
+            listing.imageUrl ||
+            '';
           const pinImgUrl = rawImg ? getOptimizedImageUrl(rawImg, 'pin') : '';
-          const isPremium = isListingPremiumActive(listing);
 
           return (
             <Marker
-              key={listing.id}
-              position={[listing.lat, listing.lng]}
-              zIndexOffset={isPremium ? 4999 : 0}
-              icon={createPriceBubble(
-                listing.priceTag,
-                listing.sellerType,
-                listing.mainCategory,
-                listing.isVerified,
-                isPremium
-              )}
+              key={listing.id || `${lat}-${lng}`}
+              position={[parseFloat(listing.lat), parseFloat(listing.lng)]}
+              zIndexOffset={isPremium ? 1000 : 0}
+              icon={createCustomMarkerIcon(listing, isPremium)}
               eventHandlers={{
-                click: () => onMarkerClick && onMarkerClick(listing),
+                click: () =>
+                  onMarkerClick &&
+                  onMarkerClick(normalizeListing ? normalizeListing(listing) : listing),
               }}
             >
               <Popup
@@ -234,7 +337,10 @@ export default function MapPage({
                 closeButton={false}
               >
                 <div
-                  onClick={() => onMarkerClick && onMarkerClick(listing)}
+                  onClick={() =>
+                    onMarkerClick &&
+                    onMarkerClick(normalizeListing ? normalizeListing(listing) : listing)
+                  }
                   className="cursor-pointer w-full max-w-[200px] overflow-hidden text-left font-sans select-none"
                 >
                   {pinImgUrl ? (
@@ -256,14 +362,14 @@ export default function MapPage({
                     <p className="text-xs font-black text-emerald-600 mt-1">
                       {isPremium && <span className="text-amber-500 mr-0.5">⭐</span>}
                       Rs. {Number(listing.price).toLocaleString()}
-                      {listing.priceTag && (
+                      {(listing.price_tag || listing.priceTag) && (
                         <span className="text-[10px] text-gray-500 font-semibold ml-1">
-                          ({listing.priceTag})
+                          ({listing.price_tag || listing.priceTag})
                         </span>
                       )}
                     </p>
                     <p className="text-[10px] text-gray-500 truncate mt-0.5">
-                      📍 {listing.locationName || 'Sri Lanka'}
+                      📍 {listing.location_name || listing.locationName || 'Sri Lanka'}
                     </p>
                   </div>
                 </div>

@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, MapPin, ImagePlus, Loader2, Trash2, ChevronDown } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { uploadImages } from '../lib/uploadImage';
 import { getProfile } from '../lib/auth';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { normalizeListing } from '../lib/storage';
 import SmartLocationPicker from './SmartLocationPicker';
 
 const MAIN_CATEGORIES = [
@@ -151,8 +154,9 @@ export default function AddListingModal({
   const [price, setPrice] = useState('');
   const [priceTag, setPriceTag] = useState('');
   const [locationName, setLocationName] = useState('');
-  const [lat, setLat] = useState(6.9271);
-  const [lng, setLng] = useState(79.8612);
+  const [lat, setLat] = useState(null);
+  const [lng, setLng] = useState(null);
+  const [locationSelected, setLocationSelected] = useState(false);
   const [phone, setPhone] = useState('');
   const [sellerType, setSellerType] = useState('owner');
   const [description, setDescription] = useState('');
@@ -221,6 +225,7 @@ export default function AddListingModal({
     onPickMode((latlng) => {
       setLat(latlng.lat.toFixed(6));
       setLng(latlng.lng.toFixed(6));
+      setLocationSelected(true);
     });
   };
 
@@ -249,8 +254,29 @@ export default function AddListingModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title || !price || !lat || !lng) {
-      alert('Please fill in required fields: Title, Price, and Coordinates.');
+
+    // Strictly ensure lat and lng are set and are valid numbers
+    const numLat = parseFloat(lat);
+    const numLng = parseFloat(lng);
+
+    if (
+      !locationSelected ||
+      lat === undefined ||
+      lat === null ||
+      lat === '' ||
+      lng === undefined ||
+      lng === null ||
+      lng === '' ||
+      isNaN(numLat) ||
+      isNaN(numLng)
+    ) {
+      alert('Please select a location on the map or search bar.');
+      toast.error('Please select a location on the map or search bar.');
+      return;
+    }
+
+    if (!title || !price) {
+      toast.error('Please fill in required fields: Title and Price.');
       return;
     }
 
@@ -273,44 +299,53 @@ export default function AddListingModal({
           ? serviceType
           : subCategory || 'other';
 
-      const baseListing = {
-        mainCategory,
-        subCategory: activeSubCategory,
-        sub_category: activeSubCategory,
-        propertyType: mainCategory === 'real_estate' ? activeSubCategory : '',
-        vehicleType: mainCategory === 'vehicles' ? activeSubCategory : '',
-        brand: effectiveBrand,
-        model: model || '',
+      const isUUID =
+        typeof user?.id === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user?.id);
+
+      const newListingData = {
+        user_id: isUUID ? user.id : null,
         title,
         price: Number(price),
-        priceTag: priceTag || generateDefaultPriceTag(price) || 'N/A',
-        locationName: locationName || 'Sri Lanka',
-        lat: Number(lat),
-        lng: Number(lng),
-        description,
-        imageUrls,
-        sellerId: user?.id || user?.uid || 'guest',
-        sellerName: profile?.name || user?.email?.split('@')[0] || 'Seller',
-        sellerPhone: phone || profile?.phone || '',
-        sellerType: sellerType || 'owner',
-        sellerAvatar: profile?.avatar_url || profile?.avatarUrl || '',
-        sellerBio: profile?.bio || '',
-        isPremium: false,
+        price_tag: priceTag || generateDefaultPriceTag(price) || 'N/A',
+        main_category: mainCategory || 'others',
+        sub_category: activeSubCategory || null,
+        property_type: mainCategory === 'real_estate' ? activeSubCategory : null,
+        vehicle_type: mainCategory === 'vehicles' ? activeSubCategory : null,
+        brand: effectiveBrand || null,
+        model: model || null,
+        year: year ? String(year) : null,
+        mileage: mileage || null,
+        transmission: transmission || null,
+        condition: condition || null,
+        size: size || null,
+        location_name: locationName || 'Sri Lanka',
+        lat: numLat,
+        lng: numLng,
+        description: description || '',
+        image_urls: imageUrls,
+        seller_name: profile?.name || user?.email?.split('@')[0] || 'Seller',
+        seller_phone: phone || profile?.phone || '',
+        seller_type: sellerType || 'owner',
         is_premium: false,
       };
 
-      // Add category specific attributes
-      if (mainCategory === 'real_estate') {
-        baseListing.size = size;
-      } else if (mainCategory === 'vehicles') {
-        baseListing.year = year;
-        baseListing.mileage = mileage;
-        baseListing.transmission = transmission;
-      } else if (mainCategory === 'electronics' || mainCategory === 'others') {
-        baseListing.condition = condition;
+      // 2. Wrap supabase.from('listings').insert(...) in strict try/catch block
+      // 3. IMMEDIATELY check for errors:
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase.from('listings').insert([newListingData]).select();
+        if (error) throw error;
+
+        if (onSave) {
+          await onSave(data && data[0] ? normalizeListing(data[0]) : newListingData);
+        }
+      } else {
+        if (onSave) {
+          await onSave(newListingData);
+        }
       }
 
-      await onSave(baseListing);
+      toast.success('Listing created successfully!');
 
       // Reset
       setTitle('');
@@ -323,13 +358,16 @@ export default function AddListingModal({
       setMileage('');
       setModel('');
       setLocationName('');
-      setLat(6.9271);
-      setLng(79.8612);
+      setLat(null);
+      setLng(null);
+      setLocationSelected(false);
       setImageFiles([]);
       setImagePreviews([]);
       onClose();
     } catch (err) {
-      alert('Failed to publish listing: ' + err.message);
+      console.error('Create Listing Error:', err);
+      toast.error('Failed to create listing: ' + (err.message || 'Please try again.'));
+      // Keep modal open and form state intact
     } finally {
       setSubmitting(false);
     }
@@ -828,10 +866,12 @@ export default function AddListingModal({
                   onLocationChange={(newLat, newLng) => {
                     setLat(newLat);
                     setLng(newLng);
+                    setLocationSelected(true);
                   }}
                   locationName={locationName}
                   onLocationNameChange={(newName) => {
                     setLocationName(newName);
+                    setLocationSelected(true);
                   }}
                 />
               </div>

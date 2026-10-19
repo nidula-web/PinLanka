@@ -312,7 +312,7 @@ export function getStoredLocalListings() {
   }
 }
 
-function saveStoredLocalListings(listings) {
+export function saveStoredLocalListings(listings) {
   try {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(listings));
   } catch {
@@ -372,7 +372,7 @@ export async function getListings() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (!error && Array.isArray(data) && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         return data.map(normalizeListing);
       }
       if (error) {
@@ -469,10 +469,11 @@ export async function saveListing(listing, currentUserId) {
         saveStoredLocalListings([normalized, ...current.filter((l) => l.id !== normalized.id)]);
         return normalized;
       } else if (insertError) {
-        console.warn('Supabase insert listing warning, saving locally:', insertError.message);
+        throw insertError;
       }
     } catch (err) {
-      console.warn('Supabase saveListing exception, saving locally:', err);
+      console.error('Supabase saveListing exception:', err);
+      throw err;
     }
   }
 
