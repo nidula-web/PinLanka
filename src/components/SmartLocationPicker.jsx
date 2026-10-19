@@ -8,6 +8,7 @@ import {
   LayersControl,
 } from 'react-leaflet';
 import L from 'leaflet';
+import { Loader } from '@googlemaps/js-api-loader';
 import {
   Search,
   LocateFixed,
@@ -98,9 +99,28 @@ export default function SmartLocationPicker({
   const [markerPosition, setMarkerPosition] = useState([initialLat, initialLng]);
   const [searchText, setSearchText] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [placesService, setPlacesService] = useState(null);
   const [isLocating, setIsLocating] = useState(false);
   const [feedback, setFeedback] = useState('');
   const markerRef = useRef(null);
+
+  // Initialize Google PlacesService via @googlemaps/js-api-loader
+  useEffect(() => {
+    const loader = new Loader({
+      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+      version: 'weekly',
+      libraries: ['places'],
+    });
+
+    loader
+      .load()
+      .then(() => {
+        const dummyElement = document.createElement('div');
+        const service = new window.google.maps.places.PlacesService(dummyElement);
+        setPlacesService(service);
+      })
+      .catch((err) => console.error('Google Maps script failed to load:', err));
+  }, []);
 
   // Sync position if incoming lat/lng props change from outside
   useEffect(() => {
@@ -141,46 +161,38 @@ export default function SmartLocationPicker({
     [updateCoordinates]
   );
 
-  // 1. Search location handler (Google Geocoding with OSM fallback)
-  const handleSearchLocation = async () => {
-    const trimmed = searchText.trim();
-    if (!trimmed) return;
+  // 1. Search location handler via Google PlacesService textSearch
+  const handleSearchLocation = () => {
+    if (!searchText.trim() || !placesService) return;
     setIsSearching(true);
     setFeedback('');
 
-    try {
-      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-      let found = false;
+    const request = {
+      query: searchText.trim() + ' Sri Lanka',
+    };
 
-      if (apiKey) {
-        try {
-          const res = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-              trimmed + ', Sri Lanka'
-            )}&key=${apiKey}`
-          );
-          const data = await res.json();
-          if (data.results && data.results.length > 0) {
-            const { lat: gLat, lng: gLng } = data.results[0].geometry.location;
-            const parsedLat = parseFloat(Number(gLat).toFixed(6));
-            const parsedLng = parseFloat(Number(gLng).toFixed(6));
-            const formattedAddress = data.results[0].formatted_address || trimmed;
+    placesService.textSearch(request, async (results, status) => {
+      if (
+        (status === window.google?.maps?.places?.PlacesServiceStatus?.OK || status === 'OK') &&
+        results &&
+        results.length > 0
+      ) {
+        setIsSearching(false);
+        const place = results[0];
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+        const parsedLat = parseFloat(Number(lat).toFixed(6));
+        const parsedLng = parseFloat(Number(lng).toFixed(6));
 
-            updateCoordinates(parsedLat, parsedLng, formattedAddress);
-            setFeedback(`📍 Set: ${formattedAddress.split(',')[0]}`);
-            setTimeout(() => setFeedback(''), 4000);
-            found = true;
-          }
-        } catch (err) {
-          console.warn('Google Geocoding error, falling back to OSM:', err);
-        }
-      }
-
-      if (!found) {
+        const formattedAddress = place.formatted_address || place.name || searchText.trim();
+        updateCoordinates(parsedLat, parsedLng, formattedAddress);
+        setFeedback(`📍 Set: ${place.name || formattedAddress.split(',')[0]}`);
+        setTimeout(() => setFeedback(''), 4000);
+      } else {
         try {
           const osmRes = await fetch(
             `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-              trimmed
+              searchText.trim()
             )}&countrycodes=LK`,
             { headers: { 'Accept-Language': 'en' } }
           );
@@ -190,28 +202,23 @@ export default function SmartLocationPicker({
               const { lat: oLat, lon: oLng, display_name } = osmData[0];
               const parsedLat = parseFloat(Number(oLat).toFixed(6));
               const parsedLng = parseFloat(Number(oLng).toFixed(6));
-              const formattedAddress = display_name || trimmed;
+              const formattedAddress = display_name || searchText.trim();
 
               updateCoordinates(parsedLat, parsedLng, formattedAddress);
               setFeedback(`📍 Set: ${formattedAddress.split(',')[0]}`);
               setTimeout(() => setFeedback(''), 4000);
-              found = true;
+              setIsSearching(false);
+              return;
             }
           }
         } catch (osmErr) {
           console.warn('OSM Nominatim error:', osmErr);
         }
-      }
 
-      if (!found) {
+        setIsSearching(false);
         alert('Location not found. Please try a different search term.');
       }
-    } catch (error) {
-      console.error('Geocoding error:', error);
-      alert('Error searching location.');
-    } finally {
-      setIsSearching(false);
-    }
+    });
   };
 
   // 2. "📍 Use My Current Location" Handler
@@ -288,13 +295,18 @@ export default function SmartLocationPicker({
           <button
             type="button"
             onClick={handleSearchLocation}
-            disabled={isSearching}
+            disabled={isSearching || !placesService}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
           >
             {isSearching ? (
               <>
                 <Loader2 size={13} className="animate-spin" />
                 <span>Searching...</span>
+              </>
+            ) : !placesService ? (
+              <>
+                <Loader2 size={13} className="animate-spin" />
+                <span>Loading...</span>
               </>
             ) : (
               <span>Search</span>

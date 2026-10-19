@@ -8,6 +8,7 @@ import {
   LayersControl,
 } from 'react-leaflet';
 import L from 'leaflet';
+import { Loader } from '@googlemaps/js-api-loader';
 import {
   X,
   MapPin,
@@ -249,9 +250,29 @@ export default function CreateListing({
   const [markerPosition, setMarkerPosition] = useState([7.8731, 80.7718]);
   const [searchText, setSearchText] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [placesService, setPlacesService] = useState(null);
   const [isLocating, setIsLocating] = useState(false);
   const [locationFeedback, setLocationFeedback] = useState('');
   const markerRef = useRef(null);
+
+  // Initialize Google PlacesService via @googlemaps/js-api-loader
+  useEffect(() => {
+    const loader = new Loader({
+      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+      version: 'weekly',
+      libraries: ['places'],
+    });
+
+    loader
+      .load()
+      .then(() => {
+        // Google PlacesService requires a dummy HTML element to initialize
+        const dummyElement = document.createElement('div');
+        const service = new window.google.maps.places.PlacesService(dummyElement);
+        setPlacesService(service);
+      })
+      .catch((err) => console.error('Google Maps script failed to load:', err));
+  }, []);
 
   // Images & submit state
   const [imageFiles, setImageFiles] = useState([]);
@@ -304,91 +325,76 @@ export default function CreateListing({
   );
 
   /**
-   * Search location via Google Geocoding API (with resilient Nominatim fallback)
+   * Search location via Google PlacesService textSearch (finds POIs, cities, landmarks)
    */
-  const handleSearchLocation = async () => {
-    const trimmed = searchText.trim();
-    if (!trimmed) return;
+  const handleSearchLocation = () => {
+    if (!searchText.trim() || !placesService) return;
     setIsSearching(true);
     setLocationFeedback('');
 
-    try {
-      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-      let found = false;
+    const request = {
+      query: searchText.trim() + ' Sri Lanka',
+    };
 
-      // 1. Fetch coordinates directly from Google Geocoding API if key is present
-      if (apiKey) {
-        try {
-          const res = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-              trimmed + ', Sri Lanka'
-            )}&key=${apiKey}`
-          );
-          const data = await res.json();
+    placesService.textSearch(request, async (results, status) => {
+      if (
+        (status === window.google?.maps?.places?.PlacesServiceStatus?.OK || status === 'OK') &&
+        results &&
+        results.length > 0
+      ) {
+        setIsSearching(false);
+        const place = results[0];
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+        const parsedLat = parseFloat(Number(lat).toFixed(6));
+        const parsedLng = parseFloat(Number(lng).toFixed(6));
 
-          if (data.results && data.results.length > 0) {
-            const { lat, lng } = data.results[0].geometry.location;
-            const parsedLat = parseFloat(Number(lat).toFixed(6));
-            const parsedLng = parseFloat(Number(lng).toFixed(6));
+        setMarkerPosition([parsedLat, parsedLng]);
+        setLat(parsedLat);
+        setLng(parsedLng);
+        setLocationSelected(true);
 
-            setMarkerPosition([parsedLat, parsedLng]);
-            setLat(parsedLat);
-            setLng(parsedLng);
-            setLocationSelected(true);
-
-            const formattedAddress = data.results[0].formatted_address || trimmed;
-            setLocationName(formattedAddress);
-            setLocationFeedback(`📍 Location set: ${formattedAddress.split(',')[0]}`);
-            setTimeout(() => setLocationFeedback(''), 4000);
-            found = true;
-          }
-        } catch (err) {
-          console.warn('Google Geocoding request failed or CORS restricted, attempting fallback:', err);
-        }
-      }
-
-      // 2. Resilient fallback to OpenStreetMap Nominatim Sri Lanka
-      if (!found) {
+        const locationTitle = place.formatted_address || place.name || searchText.trim();
+        setLocationName(locationTitle);
+        setLocationFeedback(`📍 Location set: ${place.name || locationTitle.split(',')[0]}`);
+        setTimeout(() => setLocationFeedback(''), 4000);
+      } else {
+        // Resilient fallback to OpenStreetMap Nominatim Sri Lanka if not found in Places
         try {
           const osmRes = await fetch(
             `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-              trimmed
+              searchText.trim()
             )}&countrycodes=LK`,
             { headers: { 'Accept-Language': 'en' } }
           );
           if (osmRes.ok) {
             const osmData = await osmRes.json();
             if (Array.isArray(osmData) && osmData.length > 0) {
-              const { lat, lon, display_name } = osmData[0];
-              const parsedLat = parseFloat(Number(lat).toFixed(6));
-              const parsedLng = parseFloat(Number(lon).toFixed(6));
+              const { lat: oLat, lon: oLng, display_name } = osmData[0];
+              const parsedLat = parseFloat(Number(oLat).toFixed(6));
+              const parsedLng = parseFloat(Number(oLng).toFixed(6));
 
               setMarkerPosition([parsedLat, parsedLng]);
               setLat(parsedLat);
               setLng(parsedLng);
               setLocationSelected(true);
 
-              const formattedAddress = display_name || trimmed;
+              const formattedAddress = display_name || searchText.trim();
               setLocationName(formattedAddress);
               setLocationFeedback(`📍 Location set: ${formattedAddress.split(',')[0]}`);
               setTimeout(() => setLocationFeedback(''), 4000);
-              found = true;
+              setIsSearching(false);
+              return;
             }
           }
         } catch (osmErr) {
-          console.warn('OSM Nominatim error:', osmErr);
+          console.warn('OSM Nominatim fallback error:', osmErr);
         }
-      }
 
-      if (!found) {
+        setIsSearching(false);
         alert('Location not found. Please try a different search term.');
       }
-    } catch (error) {
-      console.error('Geocoding error:', error);
-      alert('Error searching location.');
-    } finally {
-      setIsSearching(false);
-    }
+    });
   };
 
   // Detect current GPS location
@@ -1124,13 +1130,18 @@ export default function CreateListing({
                       <button
                         type="button"
                         onClick={handleSearchLocation}
-                        disabled={isSearching}
+                        disabled={isSearching || !placesService}
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
                       >
                         {isSearching ? (
                           <>
                             <Loader2 size={13} className="animate-spin" />
                             <span>Searching...</span>
+                          </>
+                        ) : !placesService ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" />
+                            <span>Loading...</span>
                           </>
                         ) : (
                           <span>Search</span>
