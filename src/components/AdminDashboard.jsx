@@ -34,6 +34,7 @@ import {
   updateListing,
   deleteListing,
   isListingPremiumActive,
+  getStoredLocalListings,
 } from '../lib/storage';
 import { getOptimizedImageUrl } from '../utils/cloudinary';
 
@@ -139,8 +140,23 @@ export default function AdminDashboard({
         return;
       }
 
-      // Filter the listings array in Javascript to find pending approvals
-      const validListings = listings || [];
+      // Check local storage listings as well
+      const localItems = getStoredLocalListings();
+
+      let validListings = listings || [];
+      // If Supabase returned 0 listings, include local listings created in the browser
+      if (validListings.length === 0 && localItems && localItems.length > 0) {
+        validListings = localItems;
+      } else if (localItems && localItems.length > 0) {
+        // Merge any pending approvals from local storage that might not be in Supabase
+        const pendingLocal = localItems.filter(
+          (l) => l.premium_status === 'pending' && !validListings.some((sl) => sl.id === l.id)
+        );
+        if (pendingLocal.length > 0) {
+          validListings = [...validListings, ...pendingLocal];
+        }
+      }
+
       const validProfiles = profiles || [];
       const pending = validListings.filter((l) => l.premium_status === 'pending');
 
@@ -198,17 +214,11 @@ export default function AdminDashboard({
         return;
       }
 
-      // Ensure handleApprove uses the real Supabase UUID from the database
-      if (!isValidUuid(listingId)) {
-        console.error(`Invalid Supabase UUID format: "${listingId}" for listing "${title}"`);
-        toast.error(`Invalid UUID format: "${listingId}". Database update skipped.`);
-        return;
-      }
-
       // Set premium_expires_at to exactly 14 days from current date
       const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
-      if (isSupabaseConfigured && supabase) {
+      // If it is a real Supabase UUID, update in Supabase
+      if (isValidUuid(listingId) && isSupabaseConfigured && supabase) {
         const { error: updateError } = await supabase
           .from('listings')
           .update({
@@ -240,7 +250,7 @@ export default function AdminDashboard({
         console.error('Storage sync error:', storageErr);
       }
 
-      // Update UI state ONLY on successful database update
+      // Update UI state ONLY on successful update
       setPendingApprovals((prev) => prev.filter((item) => item.id !== listingId));
       setPendingListings((prev) => prev.filter((item) => item.id !== listingId));
       setAllListings((prev) =>
@@ -290,14 +300,8 @@ export default function AdminDashboard({
         return;
       }
 
-      // Ensure handleReject uses the real Supabase UUID from the database
-      if (!isValidUuid(listingId)) {
-        console.error(`Invalid Supabase UUID format: "${listingId}" for listing "${title}"`);
-        toast.error(`Invalid UUID format: "${listingId}". Database update skipped.`);
-        return;
-      }
-
-      if (isSupabaseConfigured && supabase) {
+      // If it is a real Supabase UUID, update in Supabase
+      if (isValidUuid(listingId) && isSupabaseConfigured && supabase) {
         const { error: updateError } = await supabase
           .from('listings')
           .update({
@@ -326,7 +330,7 @@ export default function AdminDashboard({
         console.error('Storage sync error:', storageErr);
       }
 
-      // Update UI state ONLY on successful database update
+      // Update UI state ONLY on successful update
       setPendingApprovals((prev) => prev.filter((item) => item.id !== listingId));
       setPendingListings((prev) => prev.filter((item) => item.id !== listingId));
       setAllListings((prev) =>

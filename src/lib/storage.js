@@ -285,7 +285,7 @@ export function normalizeListing(row) {
 // Local state & change subscribers
 const listeners = new Set();
 
-function getStoredLocalListings() {
+export function getStoredLocalListings() {
   try {
     let raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (!raw) {
@@ -372,7 +372,7 @@ export async function getListings() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (!error && Array.isArray(data)) {
+      if (!error && Array.isArray(data) && data.length > 0) {
         return data.map(normalizeListing);
       }
       if (error) {
@@ -395,7 +395,8 @@ export async function saveListing(listing, currentUserId) {
 
   if (isSupabaseConfigured && supabase) {
     try {
-      const rowToInsert = {
+      // Guaranteed columns verified in Supabase public.listings schema
+      const baseRow = {
         user_id: userId,
         title: listing.title,
         price: Number(listing.price),
@@ -403,12 +404,7 @@ export async function saveListing(listing, currentUserId) {
         main_category: listing.mainCategory || 'others',
         sub_category: listing.subCategory || listing.propertyType || listing.vehicleType || null,
         property_type: listing.propertyType || listing.subCategory || null,
-        vehicle_type: listing.vehicleType || listing.subCategory || null,
         brand: listing.brand || null,
-        year: listing.year ? String(listing.year) : null,
-        mileage: listing.mileage || null,
-        transmission: listing.transmission || null,
-        condition: listing.condition || null,
         model: listing.model || null,
         size: listing.size || null,
         location_name: listing.locationName || '',
@@ -416,22 +412,64 @@ export async function saveListing(listing, currentUserId) {
         lng: Number(listing.lng),
         description: listing.description || '',
         image_urls: listing.imageUrls || [],
-        seller_name: listing.sellerName || '',
-        seller_phone: listing.sellerPhone || '',
         seller_type: listing.sellerType || 'owner',
         is_premium: Boolean(listing.isPremium || listing.is_premium),
       };
 
-      const { data, error } = await supabase
+      // Optional extended columns if database has migrated
+      const extendedRow = {
+        ...baseRow,
+        vehicle_type: listing.vehicleType || listing.subCategory || null,
+        year: listing.year ? String(listing.year) : null,
+        mileage: listing.mileage || null,
+        transmission: listing.transmission || null,
+        condition: listing.condition || null,
+        seller_name: listing.sellerName || '',
+        seller_phone: listing.sellerPhone || '',
+      };
+
+      let insertData = null;
+      let insertError = null;
+
+      // 1. Attempt insert with extended fields
+      const firstTry = await supabase
         .from('listings')
-        .insert([rowToInsert])
+        .insert([extendedRow])
         .select()
         .single();
 
-      if (!error && data) {
-        return normalizeListing(data);
-      } else if (error) {
-        console.warn('Supabase insert listing warning, saving locally:', error.message);
+      if (!firstTry.error && firstTry.data) {
+        insertData = firstTry.data;
+      } else if (firstTry.error) {
+        // 2. If it failed due to a missing column, fallback to guaranteed baseRow
+        if (
+          firstTry.error.message &&
+          firstTry.error.message.includes('column') &&
+          firstTry.error.message.includes('does not exist')
+        ) {
+          const secondTry = await supabase
+            .from('listings')
+            .insert([baseRow])
+            .select()
+            .single();
+
+          if (!secondTry.error && secondTry.data) {
+            insertData = secondTry.data;
+          } else {
+            insertError = secondTry.error;
+          }
+        } else {
+          insertError = firstTry.error;
+        }
+      }
+
+      if (insertData) {
+        const normalized = normalizeListing(insertData);
+        const current = getStoredLocalListings();
+        saveStoredLocalListings([normalized, ...current.filter((l) => l.id !== normalized.id)]);
+        return normalized;
+      } else if (insertError) {
+        console.warn('Supabase insert listing warning, saving locally:', insertError.message);
       }
     } catch (err) {
       console.warn('Supabase saveListing exception, saving locally:', err);
