@@ -112,3 +112,23 @@ html, body, #root {
 .leaflet-popup-tip-container {
   margin-top: -1px;
 }
+
+/* Google Maps Autocomplete Dropdown - ensure it renders above modals */
+.pac-container {
+  z-index: 99999 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  margin-top: 4px !important;
+  font-family: inherit !important;
+}
+
+.pac-item {
+  padding: 6px 10px !important;
+  cursor: pointer !important;
+  font-size: 12px !important;
+}
+
+.pac-item:hover {
+  background-color: #f1f5f9 !important;
+}

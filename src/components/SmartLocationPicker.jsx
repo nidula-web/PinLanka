@@ -8,12 +8,12 @@ import {
   LayersControl,
 } from 'react-leaflet';
 import L from 'leaflet';
+import Autocomplete from 'react-google-autocomplete';
 import {
   Search,
   LocateFixed,
   Loader2,
   MapPin,
-  Check,
   Compass,
 } from 'lucide-react';
 
@@ -48,15 +48,26 @@ const DRAGGABLE_PIN_ICON = L.divIcon({
   iconAnchor: [0, 0],
 });
 
-// Helper component to smoothly animate mini-map center
-function MapFlyController({ center, zoom = 15 }) {
+/**
+ * Leaflet helper component to auto-center the map (FlyTo)
+ */
+export function MapUpdater({ center }) {
   const map = useMap();
 
   useEffect(() => {
-    if (center && center[0] && center[1]) {
-      map.flyTo(center, zoom, { animate: true, duration: 1.2 });
+    if (center) {
+      const targetLat = Array.isArray(center) ? center[0] : center.lat;
+      const targetLng = Array.isArray(center) ? center[1] : center.lng;
+      if (
+        typeof targetLat === 'number' &&
+        typeof targetLng === 'number' &&
+        !isNaN(targetLat) &&
+        !isNaN(targetLng)
+      ) {
+        map.flyTo([targetLat, targetLng], 15, { duration: 1.5 });
+      }
     }
-  }, [center, zoom, map]);
+  }, [center, map]);
 
   return null;
 }
@@ -96,13 +107,15 @@ export default function SmartLocationPicker({
   const initialLat = lat ? parseFloat(lat) : 6.9271;
   const initialLng = lng ? parseFloat(lng) : 79.8612;
 
-  const [position, setPosition] = useState({ lat: initialLat, lng: initialLng });
-  const [flyTarget, setFlyTarget] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
+  const [markerPosition, setMarkerPosition] = useState({
+    lat: initialLat,
+    lng: initialLng,
+  });
   const [isLocating, setIsLocating] = useState(false);
-  const [searchFeedback, setSearchFeedback] = useState('');
+  const [feedback, setFeedback] = useState('');
   const markerRef = useRef(null);
+
+  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
   // Sync position if incoming lat/lng props change from outside
   useEffect(() => {
@@ -110,7 +123,7 @@ export default function SmartLocationPicker({
       const parsedLat = parseFloat(lat);
       const parsedLng = parseFloat(lng);
       if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
-        setPosition({ lat: parsedLat, lng: parsedLng });
+        setMarkerPosition({ lat: parsedLat, lng: parsedLng });
       }
     }
   }, [lat, lng]);
@@ -119,7 +132,7 @@ export default function SmartLocationPicker({
     (newLat, newLng, newLocationName = null) => {
       const roundedLat = parseFloat(Number(newLat).toFixed(6));
       const roundedLng = parseFloat(Number(newLng).toFixed(6));
-      setPosition({ lat: roundedLat, lng: roundedLng });
+      setMarkerPosition({ lat: roundedLat, lng: roundedLng });
       onLocationChange(roundedLat, roundedLng);
 
       if (newLocationName && onLocationNameChange) {
@@ -143,7 +156,27 @@ export default function SmartLocationPicker({
     [updateCoordinates]
   );
 
-  // 1. "📍 Use My Current Location" Handler
+  // 1. Google Autocomplete place selection handler
+  const handlePlaceSelected = (place) => {
+    if (!place || !place.geometry || !place.geometry.location) {
+      setFeedback('Location details not found. Please select from the dropdown.');
+      return;
+    }
+
+    const loc = place.geometry.location;
+    const selectedLat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
+    const selectedLng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
+
+    const parsedLat = parseFloat(Number(selectedLat).toFixed(6));
+    const parsedLng = parseFloat(Number(selectedLng).toFixed(6));
+
+    const address = place.formatted_address || place.name || '';
+    updateCoordinates(parsedLat, parsedLng, address);
+    setFeedback(`📍 Set: ${place.name || address.split(',')[0]}`);
+    setTimeout(() => setFeedback(''), 4000);
+  };
+
+  // 2. "📍 Use My Current Location" Handler
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser.');
@@ -151,7 +184,7 @@ export default function SmartLocationPicker({
     }
 
     setIsLocating(true);
-    setSearchFeedback('');
+    setFeedback('');
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -159,9 +192,8 @@ export default function SmartLocationPicker({
         const userLng = pos.coords.longitude;
 
         updateCoordinates(userLat, userLng);
-        setFlyTarget([userLat, userLng]);
 
-        // Reverse geocode to suggest a friendly location name if field is empty
+        // Reverse geocode fallback to suggest a friendly location name
         try {
           const revUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLat}&lon=${userLng}`;
           const res = await fetch(revUrl, {
@@ -194,81 +226,23 @@ export default function SmartLocationPicker({
     );
   };
 
-  // 2. Search / Geocoding with Nominatim restricted to Sri Lanka (countrycodes=LK)
-  const handleSearchLocation = async (e) => {
-    if (e) e.preventDefault();
-    const query = searchQuery.trim();
-    if (!query) return;
-
-    setIsSearching(true);
-    setSearchFeedback('');
-
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-        query
-      )}&countrycodes=LK`;
-
-      const res = await fetch(url, {
-        headers: { 'Accept-Language': 'en' },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          const first = data[0];
-          const newLat = parseFloat(first.lat);
-          const newLng = parseFloat(first.lon);
-
-          // Clean display name for auto-fill
-          const parts = first.display_name.split(',').map((s) => s.trim());
-          const cleanName = parts.slice(0, 3).join(', ');
-
-          updateCoordinates(newLat, newLng, cleanName);
-          setFlyTarget([newLat, newLng]);
-          setSearchFeedback(`Found: ${parts[0]}`);
-          setTimeout(() => setSearchFeedback(''), 3000);
-          setIsSearching(false);
-          return;
-        }
-      }
-
-      setSearchFeedback('Location not found in Sri Lanka. Try another keyword.');
-    } catch (err) {
-      console.error('Nominatim search error:', err);
-      setSearchFeedback('Search failed. Please try again or drag the pin.');
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
   return (
     <div className="space-y-2.5">
-      {/* Top Controls: Search Bar & Current Location Button */}
+      {/* Top Controls: Google Autocomplete Search Bar & Current Location Button */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-        {/* Search input with Nominatim */}
+        {/* Google Places Autocomplete Input */}
         <div className="relative flex-1">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleSearchLocation(e);
-              }
+          <Autocomplete
+            apiKey={googleApiKey}
+            onPlaceSelected={handlePlaceSelected}
+            options={{
+              types: ['geocode', 'establishment'],
+              componentRestrictions: { country: 'lk' },
             }}
-            placeholder="Search city or street in Sri Lanka..."
-            className="w-full pl-8 pr-18 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 placeholder-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            placeholder="Search for a city or landmark (e.g. Nugegoda)..."
+            className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 placeholder-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-2xs"
           />
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <button
-            type="button"
-            onClick={handleSearchLocation}
-            disabled={isSearching || !searchQuery.trim()}
-            className="absolute right-1 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-40 text-white text-[11px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-          >
-            {isSearching ? <Loader2 size={12} className="animate-spin" /> : <span>Search</span>}
-          </button>
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
         </div>
 
         {/* Use My Current Location Button */}
@@ -293,18 +267,18 @@ export default function SmartLocationPicker({
         </button>
       </div>
 
-      {/* Search Feedback Message */}
-      {searchFeedback && (
+      {/* Feedback Message */}
+      {feedback && (
         <p className="text-[11px] font-semibold text-blue-600 animate-fade-in flex items-center gap-1">
           <Compass size={12} />
-          <span>{searchFeedback}</span>
+          <span>{feedback}</span>
         </p>
       )}
 
       {/* Mini-Map Container (height ~250px, rounded corners) */}
       <div className="relative w-full h-[250px] rounded-2xl overflow-hidden border border-gray-200/90 shadow-inner z-0 group">
         <MapContainer
-          center={[position.lat, position.lng]}
+          center={[markerPosition.lat, markerPosition.lng]}
           zoom={14}
           scrollWheelZoom={true}
           className="w-full h-full z-0 cursor-crosshair"
@@ -332,13 +306,14 @@ export default function SmartLocationPicker({
           <Marker
             draggable={true}
             eventHandlers={markerEventHandlers}
-            position={[position.lat, position.lng]}
+            position={[markerPosition.lat, markerPosition.lng]}
             ref={markerRef}
             icon={DRAGGABLE_PIN_ICON}
           />
 
           <MapClickHandler onLocationChange={updateCoordinates} />
-          {flyTarget && <MapFlyController center={flyTarget} zoom={15} />}
+          {/* Leaflet helper component to auto-center the map (FlyTo) */}
+          <MapUpdater center={markerPosition} />
           <InvalidateSizeEffect />
         </MapContainer>
 
@@ -351,7 +326,7 @@ export default function SmartLocationPicker({
         <div className="absolute bottom-2 right-2 z-[1000] bg-white/95 backdrop-blur-xs text-gray-700 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full shadow-sm border border-gray-200/80 pointer-events-none flex items-center gap-1">
           <MapPin size={11} className="text-emerald-600" />
           <span>
-            {position.lat.toFixed(4)}, {position.lng.toFixed(4)}
+            {markerPosition.lat.toFixed(4)}, {markerPosition.lng.toFixed(4)}
           </span>
         </div>
       </div>
