@@ -11,6 +11,7 @@ import SellerProfilePage from './components/SellerProfilePage';
 import AdminDashboard from './components/AdminDashboard';
 import MyListings from './components/MyListings';
 import NotificationBell from './components/NotificationBell';
+import UserMenu from './components/UserMenu';
 import ContactUs from './components/ContactUs';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
@@ -221,103 +222,79 @@ export default function App() {
       {/* Unified Modern Marketplace Header / Navbar */}
       <header className="bg-white/95 backdrop-blur-md border-b border-gray-200/80 z-[1001] shrink-0 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
         {/* Row 1: Brand Logo & User Actions */}
-        <div className="h-13 px-4 flex items-center justify-between">
+        <div className="h-14 px-4 sm:px-6 flex items-center justify-between">
           <div
             onClick={() => navigate('/')}
-            className="flex items-center gap-2.5 cursor-pointer select-none"
+            className="flex items-center gap-2.5 cursor-pointer select-none group"
             title="Return to Home"
           >
             <img
               src="/pin-logo.svg"
               alt="Selinmap Logo"
-              className="w-8 h-8 object-contain shrink-0"
+              className="w-8 h-8 object-contain shrink-0 transition-transform group-hover:scale-105"
             />
             <div className="flex items-baseline gap-1.5">
               <h1 className="text-lg font-black text-gray-900 tracking-tight">
                 Selin<span className="text-emerald-600">map</span>
               </h1>
-              <span className="hidden sm:inline-block text-[11px] font-semibold text-gray-400 border-l border-gray-200 pl-2 uppercase tracking-wider">
+              <span className="hidden sm:inline-block text-[10px] font-bold text-gray-400 border-l border-gray-200 pl-2 uppercase tracking-wider">
                 Marketplace
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {Boolean(profile?.is_admin || user?.user_metadata?.is_admin || user?.is_admin) && (
-              location.pathname === '/admin' ? (
-                <button
-                  onClick={() => navigate('/')}
-                  className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-950 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full border border-gray-300 transition-all cursor-pointer"
-                  title="Return to Map"
-                >
-                  <Map size={14} />
-                  <span>Back to Map</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => navigate('/admin')}
-                  className="flex items-center gap-1.5 text-xs font-black bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 active:scale-95 text-amber-950 px-3 py-1.5 rounded-full shadow-xs border border-amber-300 transition-all cursor-pointer"
-                  title="Admin Dashboard"
-                >
-                  <span>👑 Admin Panel</span>
-                </button>
-              )
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* If on /admin, quick Back to Map button */}
+            {location.pathname === '/admin' && (
+              <button
+                onClick={() => navigate('/')}
+                className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-gray-950 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full border border-gray-200 transition-all cursor-pointer"
+                title="Return to Map"
+              >
+                <Map size={14} />
+                <span className="hidden sm:inline">Back to Map</span>
+              </button>
             )}
 
-            {/* My Ads & Golden Pins Button */}
-            <button
-              onClick={() => setShowMyListings(true)}
-              className="flex items-center gap-1.5 text-xs font-bold text-amber-950 bg-gradient-to-r from-amber-100 to-yellow-100 hover:from-amber-200 hover:to-yellow-200 border border-amber-300/80 px-3 py-1.5 rounded-full shadow-xs active:scale-95 transition-all cursor-pointer"
-              title="My Ads & Golden Pins"
-            >
-              <span>⭐</span>
-              <span className="hidden xs:inline">My Ads</span>
-            </button>
+            {/* Desktop shortcut to My Ads (clean, subtle text link without heavy gradients) */}
+            {user && location.pathname !== '/admin' && (
+              <button
+                onClick={() => setShowMyListings(true)}
+                className="hidden md:flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 px-3 py-1.5 rounded-full transition-colors cursor-pointer"
+                title="My Ads & Golden Pins"
+              >
+                <span className="text-amber-500">⭐</span>
+                <span>My Ads</span>
+              </button>
+            )}
 
             {/* Notification Bell */}
             <NotificationBell user={user} />
 
-            {user ? (
-              <button
-                onClick={() => setShowProfile(true)}
-                className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-gray-100 hover:ring-emerald-400 transition-all shadow-xs overflow-hidden cursor-pointer"
-                title="My Profile"
-              >
-                {profile?.avatar_url || profile?.avatarUrl ? (
-                  <img
-                    src={profile.avatar_url || profile.avatarUrl}
-                    alt={profile.name || 'Avatar'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : profile?.name ? (
-                  profile.name.charAt(0).toUpperCase()
-                ) : (
-                  user.email?.charAt(0).toUpperCase()
-                )}
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-gray-950 px-3 py-1.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
-              >
-                <LogIn size={15} />
-                <span>Login</span>
-              </button>
-            )}
-
+            {/* Post Ad Button */}
             <button
               onClick={handleAddClick}
-              className="flex items-center gap-1.5 bg-gray-950 hover:bg-gray-800 active:scale-95 text-white text-xs font-bold px-3.5 py-1.5 rounded-full shadow-xs hover:shadow transition-all cursor-pointer"
+              className="flex items-center gap-1.5 bg-gray-950 hover:bg-gray-800 active:scale-95 text-white text-xs font-bold px-3.5 sm:px-4 py-1.5 rounded-full shadow-xs hover:shadow transition-all cursor-pointer"
             >
-              <Plus size={15} />
+              <Plus size={15} strokeWidth={2.2} />
               <span>Post Ad</span>
             </button>
+
+            {/* Unified User Menu (Airbnb style) */}
+            <UserMenu
+              user={user}
+              profile={profile}
+              onOpenProfile={() => setShowProfile(true)}
+              onOpenMyListings={() => setShowMyListings(true)}
+              onOpenAuth={() => setShowAuthModal(true)}
+              onSignOut={handleSignOut}
+            />
           </div>
         </div>
 
         {/* Row 2: Integrated Category Navigation & Filters (only for marketplace views) */}
         {!['/admin', '/contact', '/privacy', '/terms'].includes(location.pathname) && (
-          <div className="px-4 pb-2.5 pt-0.5 border-t border-gray-100/70">
+          <div className="px-4 sm:px-6 py-2 border-t border-gray-100/80">
             <FilterBar
               activeCategory={activeCategory}
               onCategoryChange={setActiveCategory}

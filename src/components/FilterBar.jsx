@@ -74,8 +74,8 @@ export default function FilterBar({
               }}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150 flex items-center gap-1.5 shrink-0 active:scale-95 ${
                 isActive
-                  ? 'bg-gray-900 text-white shadow-sm ring-1 ring-gray-900'
-                  : 'bg-gray-100/90 text-gray-600 hover:bg-gray-200/90 hover:text-gray-900'
+                  ? 'bg-gray-950 text-white shadow-xs'
+                  : 'bg-white hover:bg-gray-100/90 text-gray-600 hover:text-gray-950 border border-gray-200/80 shadow-2xs'
               }`}
             >
               <span className="text-xs">{cat.icon}</span>
@@ -87,13 +87,13 @@ export default function FilterBar({
         {/* Price filter toggle button */}
         <button
           onClick={() => setShowPrice(!showPrice)}
-          className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150 flex items-center gap-1 shrink-0 ml-auto active:scale-95 ${
+          className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150 flex items-center gap-1.5 shrink-0 ml-auto active:scale-95 ${
             hasPriceFilter || showPrice
-              ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-600'
-              : 'bg-gray-100/90 text-gray-600 hover:bg-gray-200/90 hover:text-gray-900'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-white hover:bg-gray-100/90 text-gray-600 hover:text-gray-950 border border-gray-200/80 shadow-2xs'
           }`}
         >
-          <SlidersHorizontal size={13} />
+          <SlidersHorizontal size={13} className="stroke-[1.75]" />
           <span>Price</span>
           {hasPriceFilter && (
             <span className="w-1.5 h-1.5 rounded-full bg-white ml-0.5" />
@@ -103,7 +103,7 @@ export default function FilterBar({
 
       {/* Subcategory row (shown when Real Estate or Vehicles is active) */}
       {subOptions && (
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide pt-2 pb-0.5 text-[11px]">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide pt-1.5 pb-0.5 text-[11px]">
           {subOptions.map((sub) => {
             const isSubActive = activeSubCategory === sub.key;
             return (
@@ -112,8 +112,8 @@ export default function FilterBar({
                 onClick={() => onSubCategoryChange(sub.key)}
                 className={`px-2.5 py-1 rounded-full font-medium whitespace-nowrap transition-all duration-150 shrink-0 ${
                   isSubActive
-                    ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900 border border-gray-200/60'
+                    ? 'bg-gray-900 text-white font-semibold shadow-xs'
+                    : 'bg-gray-50/90 text-gray-600 hover:bg-gray-100 hover:text-gray-900 border border-gray-200/60'
                 }`}
               >
                 {sub.label}
