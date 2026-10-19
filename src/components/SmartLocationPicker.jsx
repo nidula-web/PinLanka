@@ -374,10 +374,9 @@ export default function SmartLocationPicker({
           <LayersControl position="topright">
             <LayersControl.BaseLayer checked name="🛰️ Satellite View">
               <TileLayer
-                attribution="&copy; Esri"
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                maxNativeZoom={17}
-                maxZoom={22}
+                attribution="&copy; Google Maps"
+                url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
+                maxZoom={21}
               />
             </LayersControl.BaseLayer>
 

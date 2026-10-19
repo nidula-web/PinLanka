@@ -93,15 +93,82 @@ function MapClickHandler({ onLocationChange, disabled }) {
   return null;
 }
 
-// Leaflet event listener component for drawing land boundaries
-function MapDrawEvents({ isDrawing, setPoints }) {
+// Freehand pencil drawing tool for land boundaries
+function FreehandDraw({ isDrawingMode, setBoundaryPoints }) {
+  const map = useMap();
+  const [isPenDown, setIsPenDown] = useState(false);
+
+  // CRITICAL: Disable map panning when the pencil tool is active so mobile users can draw instead of scrolling the map
+  useEffect(() => {
+    if (isDrawingMode) {
+      map.dragging.disable();
+      map.touchZoom.disable();
+    } else {
+      map.dragging.enable();
+      map.touchZoom.enable();
+    }
+  }, [isDrawingMode, map]);
+
   useMapEvents({
-    click(e) {
-      if (isDrawing) {
-        setPoints((prev) => [...prev, [e.latlng.lat, e.latlng.lng]]);
-      }
+    mousedown(e) {
+      if (!isDrawingMode) return;
+      setIsPenDown(true);
+      // Start a brand new shape
+      setBoundaryPoints([[e.latlng.lat, e.latlng.lng]]);
+    },
+    mousemove(e) {
+      if (!isDrawingMode || !isPenDown) return;
+      // Add points smoothly as they drag
+      setBoundaryPoints((prev) => [...prev, [e.latlng.lat, e.latlng.lng]]);
+    },
+    mouseup() {
+      if (!isDrawingMode) return;
+      setIsPenDown(false);
+    },
+    // Handle mobile touches going off-screen
+    mouseout() {
+      setIsPenDown(false);
     },
   });
+
+  // Mobile touch event listeners on the map container
+  useEffect(() => {
+    if (!isDrawingMode) return;
+
+    const container = map.getContainer();
+
+    const handleTouchStart = (e) => {
+      if (!isDrawingMode || e.touches.length === 0) return;
+      setIsPenDown(true);
+      const touch = e.touches[0];
+      const point = map.mouseEventToLatLng(touch);
+      setBoundaryPoints([[point.lat, point.lng]]);
+    };
+
+    const handleTouchMove = (e) => {
+      if (!isDrawingMode || e.touches.length === 0) return;
+      const touch = e.touches[0];
+      const point = map.mouseEventToLatLng(touch);
+      setBoundaryPoints((prev) => [...prev, [point.lat, point.lng]]);
+    };
+
+    const handleTouchEnd = () => {
+      setIsPenDown(false);
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: true });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+    container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [isDrawingMode, map, setBoundaryPoints]);
+
   return null;
 }
 
@@ -1181,12 +1248,12 @@ export default function CreateListing({
                             onClick={() => setIsDrawingMode((prev) => !prev)}
                             className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
                               isDrawingMode
-                                ? 'bg-blue-600 text-white shadow-md'
+                                ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-300'
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                           >
                             <span>✏️</span>
-                            <span>{isDrawingMode ? 'Drawing Active (Tap Map)' : 'Draw Boundaries'}</span>
+                            <span>{isDrawingMode ? 'Pencil Active (Drag to Draw)' : '✏️ Freehand Pencil'}</span>
                           </button>
                           <button
                             type="button"
@@ -1218,16 +1285,15 @@ export default function CreateListing({
                       zoom={14}
                       maxZoom={22}
                       scrollWheelZoom={true}
-                      className="w-full h-full z-0 cursor-crosshair"
+                      className={`w-full h-full z-0 ${isDrawingMode ? 'cursor-crosshair' : ''}`}
                       attributionControl={false}
                     >
                       <LayersControl position="topright">
                         <LayersControl.BaseLayer checked name="🛰️ Satellite View">
                           <TileLayer
-                            attribution="&copy; Esri"
-                            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                            maxNativeZoom={17}
-                            maxZoom={22}
+                            attribution="&copy; Google Maps"
+                            url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
+                            maxZoom={21}
                           />
                         </LayersControl.BaseLayer>
 
@@ -1251,7 +1317,7 @@ export default function CreateListing({
                       />
 
                       <MapClickHandler onLocationChange={updateCoordinates} disabled={isDrawingMode} />
-                      <MapDrawEvents isDrawing={isDrawingMode} setPoints={setBoundaryPoints} />
+                      <FreehandDraw isDrawingMode={isDrawingMode} setBoundaryPoints={setBoundaryPoints} />
 
                       {/* Current boundary polygon shape being drawn */}
                       {boundaryPoints.length > 0 && (
