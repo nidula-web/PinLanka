@@ -8,22 +8,6 @@ import {
   LayersControl,
 } from 'react-leaflet';
 import L from 'leaflet';
-import GoogleAutocomplete, { usePlacesWidget } from 'react-google-autocomplete';
-
-// Resolve Autocomplete safely across Vite / CJS interop
-const Autocomplete =
-  typeof GoogleAutocomplete === 'function' || GoogleAutocomplete?.$$typeof
-    ? GoogleAutocomplete
-    : GoogleAutocomplete?.default && (typeof GoogleAutocomplete.default === 'function' || GoogleAutocomplete.default?.$$typeof)
-    ? GoogleAutocomplete.default
-    : function AutocompleteFallback({ onPlaceSelected, apiKey, options, ...rest }) {
-        const { ref } = usePlacesWidget({
-          apiKey,
-          onPlaceSelected,
-          options,
-        });
-        return <input ref={ref} {...rest} />;
-      };
 import {
   X,
   MapPin,
@@ -263,6 +247,8 @@ export default function CreateListing({
 
   // Location marker & map state (valid array of numbers for Sri Lanka)
   const [markerPosition, setMarkerPosition] = useState([7.8731, 80.7718]);
+  const [searchText, setSearchText] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [locationFeedback, setLocationFeedback] = useState('');
   const markerRef = useRef(null);
@@ -318,31 +304,90 @@ export default function CreateListing({
   );
 
   /**
-   * 1. Google Autocomplete selection event handler:
-   * Strictly extracts lat/lng by calling functions with ()
+   * Search location via Google Geocoding API (with resilient Nominatim fallback)
    */
-  const handlePlaceSelected = (place) => {
-    console.log("Selected Place:", place);
-    if (place && place.geometry && place.geometry.location) {
-      const lat = place.geometry.location.lat();
-      const lng = place.geometry.location.lng();
+  const handleSearchLocation = async () => {
+    const trimmed = searchText.trim();
+    if (!trimmed) return;
+    setIsSearching(true);
+    setLocationFeedback('');
 
-      const parsedLat = parseFloat(Number(lat).toFixed(6));
-      const parsedLng = parseFloat(Number(lng).toFixed(6));
+    try {
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      let found = false;
 
-      setMarkerPosition([parsedLat, parsedLng]);
-      setLat(parsedLat);
-      setLng(parsedLng);
-      setLocationSelected(true);
+      // 1. Fetch coordinates directly from Google Geocoding API if key is present
+      if (apiKey) {
+        try {
+          const res = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+              trimmed + ', Sri Lanka'
+            )}&key=${apiKey}`
+          );
+          const data = await res.json();
 
-      const address = place.formatted_address || place.name || '';
-      if (address) {
-        setLocationName(address);
+          if (data.results && data.results.length > 0) {
+            const { lat, lng } = data.results[0].geometry.location;
+            const parsedLat = parseFloat(Number(lat).toFixed(6));
+            const parsedLng = parseFloat(Number(lng).toFixed(6));
+
+            setMarkerPosition([parsedLat, parsedLng]);
+            setLat(parsedLat);
+            setLng(parsedLng);
+            setLocationSelected(true);
+
+            const formattedAddress = data.results[0].formatted_address || trimmed;
+            setLocationName(formattedAddress);
+            setLocationFeedback(`📍 Location set: ${formattedAddress.split(',')[0]}`);
+            setTimeout(() => setLocationFeedback(''), 4000);
+            found = true;
+          }
+        } catch (err) {
+          console.warn('Google Geocoding request failed or CORS restricted, attempting fallback:', err);
+        }
       }
-      setLocationFeedback(`📍 Location set: ${place.name || address.split(',')[0]}`);
-      setTimeout(() => setLocationFeedback(''), 4000);
-    } else {
-      alert("Please select a place from the dropdown suggestions.");
+
+      // 2. Resilient fallback to OpenStreetMap Nominatim Sri Lanka
+      if (!found) {
+        try {
+          const osmRes = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+              trimmed
+            )}&countrycodes=LK`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          if (osmRes.ok) {
+            const osmData = await osmRes.json();
+            if (Array.isArray(osmData) && osmData.length > 0) {
+              const { lat, lon, display_name } = osmData[0];
+              const parsedLat = parseFloat(Number(lat).toFixed(6));
+              const parsedLng = parseFloat(Number(lon).toFixed(6));
+
+              setMarkerPosition([parsedLat, parsedLng]);
+              setLat(parsedLat);
+              setLng(parsedLng);
+              setLocationSelected(true);
+
+              const formattedAddress = display_name || trimmed;
+              setLocationName(formattedAddress);
+              setLocationFeedback(`📍 Location set: ${formattedAddress.split(',')[0]}`);
+              setTimeout(() => setLocationFeedback(''), 4000);
+              found = true;
+            }
+          }
+        } catch (osmErr) {
+          console.warn('OSM Nominatim error:', osmErr);
+        }
+      }
+
+      if (!found) {
+        alert('Location not found. Please try a different search term.');
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      alert('Error searching location.');
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -1057,19 +1102,40 @@ export default function CreateListing({
                 </div>
 
                 <div className="space-y-2.5">
-                  {/* Google Autocomplete Search Bar & Current Location Button */}
+                  {/* Custom Geocoding Search Bar & Current Location Button */}
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    <div className="relative flex-1">
-                      <Autocomplete
-                        onPlaceSelected={handlePlaceSelected}
-                        options={{
-                          types: ['geocode', 'establishment'],
-                          componentRestrictions: { country: 'lk' },
-                        }}
-                        placeholder="Search for a city or landmark (e.g. Nugegoda)..."
-                        className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 placeholder-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-2xs"
-                      />
-                      <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <div className="relative flex-1 flex gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={searchText}
+                          onChange={(e) => setSearchText(e.target.value)}
+                          placeholder="Type a city or landmark (e.g., Nugegoda) and click Search..."
+                          className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 placeholder-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-2xs"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSearchLocation();
+                            }
+                          }}
+                        />
+                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSearchLocation}
+                        disabled={isSearching}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                      >
+                        {isSearching ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" />
+                            <span>Searching...</span>
+                          </>
+                        ) : (
+                          <span>Search</span>
+                        )}
+                      </button>
                     </div>
 
                     <button

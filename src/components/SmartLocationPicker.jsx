@@ -8,22 +8,6 @@ import {
   LayersControl,
 } from 'react-leaflet';
 import L from 'leaflet';
-import GoogleAutocomplete, { usePlacesWidget } from 'react-google-autocomplete';
-
-// Resolve Autocomplete safely across Vite / CJS interop
-const Autocomplete =
-  typeof GoogleAutocomplete === 'function' || GoogleAutocomplete?.$$typeof
-    ? GoogleAutocomplete
-    : GoogleAutocomplete?.default && (typeof GoogleAutocomplete.default === 'function' || GoogleAutocomplete.default?.$$typeof)
-    ? GoogleAutocomplete.default
-    : function AutocompleteFallback({ onPlaceSelected, apiKey, options, ...rest }) {
-        const { ref } = usePlacesWidget({
-          apiKey,
-          onPlaceSelected,
-          options,
-        });
-        return <input ref={ref} {...rest} />;
-      };
 import {
   Search,
   LocateFixed,
@@ -112,6 +96,8 @@ export default function SmartLocationPicker({
   const initialLng = lng ? parseFloat(lng) : 80.7718;
 
   const [markerPosition, setMarkerPosition] = useState([initialLat, initialLng]);
+  const [searchText, setSearchText] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [feedback, setFeedback] = useState('');
   const markerRef = useRef(null);
@@ -155,24 +141,77 @@ export default function SmartLocationPicker({
     [updateCoordinates]
   );
 
-  // 1. Google Autocomplete place selection handler
-  const handlePlaceSelected = (place) => {
-    if (!place || !place.geometry || !place.geometry.location) {
-      console.warn('No location data for this place');
-      setFeedback('Location details not found. Please select from the dropdown.');
-      return;
+  // 1. Search location handler (Google Geocoding with OSM fallback)
+  const handleSearchLocation = async () => {
+    const trimmed = searchText.trim();
+    if (!trimmed) return;
+    setIsSearching(true);
+    setFeedback('');
+
+    try {
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      let found = false;
+
+      if (apiKey) {
+        try {
+          const res = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+              trimmed + ', Sri Lanka'
+            )}&key=${apiKey}`
+          );
+          const data = await res.json();
+          if (data.results && data.results.length > 0) {
+            const { lat: gLat, lng: gLng } = data.results[0].geometry.location;
+            const parsedLat = parseFloat(Number(gLat).toFixed(6));
+            const parsedLng = parseFloat(Number(gLng).toFixed(6));
+            const formattedAddress = data.results[0].formatted_address || trimmed;
+
+            updateCoordinates(parsedLat, parsedLng, formattedAddress);
+            setFeedback(`📍 Set: ${formattedAddress.split(',')[0]}`);
+            setTimeout(() => setFeedback(''), 4000);
+            found = true;
+          }
+        } catch (err) {
+          console.warn('Google Geocoding error, falling back to OSM:', err);
+        }
+      }
+
+      if (!found) {
+        try {
+          const osmRes = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+              trimmed
+            )}&countrycodes=LK`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          if (osmRes.ok) {
+            const osmData = await osmRes.json();
+            if (Array.isArray(osmData) && osmData.length > 0) {
+              const { lat: oLat, lon: oLng, display_name } = osmData[0];
+              const parsedLat = parseFloat(Number(oLat).toFixed(6));
+              const parsedLng = parseFloat(Number(oLng).toFixed(6));
+              const formattedAddress = display_name || trimmed;
+
+              updateCoordinates(parsedLat, parsedLng, formattedAddress);
+              setFeedback(`📍 Set: ${formattedAddress.split(',')[0]}`);
+              setTimeout(() => setFeedback(''), 4000);
+              found = true;
+            }
+          }
+        } catch (osmErr) {
+          console.warn('OSM Nominatim error:', osmErr);
+        }
+      }
+
+      if (!found) {
+        alert('Location not found. Please try a different search term.');
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      alert('Error searching location.');
+    } finally {
+      setIsSearching(false);
     }
-
-    const selectedLat = place.geometry.location.lat();
-    const selectedLng = place.geometry.location.lng();
-
-    const parsedLat = parseFloat(Number(selectedLat).toFixed(6));
-    const parsedLng = parseFloat(Number(selectedLng).toFixed(6));
-
-    const address = place.formatted_address || place.name || '';
-    updateCoordinates(parsedLat, parsedLng, address);
-    setFeedback(`📍 Set: ${place.name || address.split(',')[0]}`);
-    setTimeout(() => setFeedback(''), 4000);
   };
 
   // 2. "📍 Use My Current Location" Handler
@@ -227,20 +266,40 @@ export default function SmartLocationPicker({
 
   return (
     <div className="space-y-2.5">
-      {/* Top Controls: Google Autocomplete Search Bar & Current Location Button */}
+      {/* Top Controls: Custom Geocoding Search Bar & Current Location Button */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-        {/* Google Places Autocomplete Input */}
-        <div className="relative flex-1">
-          <Autocomplete
-            onPlaceSelected={handlePlaceSelected}
-            options={{
-              types: ['geocode', 'establishment'],
-              componentRestrictions: { country: 'lk' },
-            }}
-            placeholder="Search for a city or landmark (e.g. Nugegoda)..."
-            className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 placeholder-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-2xs"
-          />
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <div className="relative flex-1 flex gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Type a city or landmark (e.g., Nugegoda) and click Search..."
+              className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 placeholder-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-2xs"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSearchLocation();
+                }
+              }}
+            />
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
+          <button
+            type="button"
+            onClick={handleSearchLocation}
+            disabled={isSearching}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+          >
+            {isSearching ? (
+              <>
+                <Loader2 size={13} className="animate-spin" />
+                <span>Searching...</span>
+              </>
+            ) : (
+              <span>Search</span>
+            )}
+          </button>
         </div>
 
         {/* Use My Current Location Button */}
