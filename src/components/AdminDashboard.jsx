@@ -56,7 +56,13 @@ export default function AdminDashboard({
   // Navigation tabs
   const [activeTab, setActiveTab] = useState('approvals'); // 'approvals' | 'overview' | 'listings' | 'users'
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Core stats states as requested
+  const [totalListings, setTotalListings] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
 
   // Data states
   const [allListings, setAllListings] = useState([]);
@@ -92,13 +98,18 @@ export default function AdminDashboard({
     );
   };
 
-  // Fetch Dashboard Data (Listings, Profiles, Stats)
-  // STRICT SUPABASE FETCHING: Rely 100% on actual Supabase data. No fallback arrays.
-  const fetchDashboardData = async () => {
+  // Robust Admin Data Fetching (Listings, Profiles, Pending Approvals)
+  const fetchAdminData = async () => {
+    setLoading(true);
+    setError(null);
     setRefreshing(true);
     try {
       if (!isSupabaseConfigured || !supabase) {
         console.warn('Supabase is not configured.');
+        setError('Supabase is not configured. Please check your environment variables.');
+        setTotalListings(0);
+        setTotalUsers(0);
+        setPendingApprovals([]);
         setPendingListings([]);
         setAllListings([]);
         setUsersList([]);
@@ -111,65 +122,52 @@ export default function AdminDashboard({
         return;
       }
 
-      // 1. Strictly fetch pending listings from Supabase
-      const { data: pendingData, error: pendingError } = await supabase
+      // Fetch 1: All listings
+      const { data: listings, error: listingsError } = await supabase
         .from('listings')
-        .select('*')
-        .eq('premium_status', 'pending');
+        .select('*');
 
-      if (pendingError) {
-        console.error('Supabase error fetching pending listings:', pendingError);
-        setPendingListings([]);
-      } else {
-        // Strictly populated by result of supabase query; no fallback arrays
-        setPendingListings(pendingData || []);
-      }
-
-      // 2. Strictly fetch all listings from Supabase
-      const { data: listingsData, error: listingsError } = await supabase
-        .from('listings')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (listingsError) {
-        console.error('Supabase error fetching all listings:', listingsError);
-        setAllListings([]);
-      } else {
-        setAllListings(listingsData || []);
-      }
-
-      // 3. Strictly fetch profiles from Supabase
-      const { data: profilesData, error: profilesError } = await supabase
+      // Fetch 2: All profiles
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
 
-      if (profilesError) {
-        console.error('Supabase error fetching profiles:', profilesError);
-        setUsersList([]);
-      } else {
-        setUsersList(profilesData || []);
+      if (listingsError || profilesError) {
+        const errMsg = listingsError?.message || profilesError?.message || 'Failed to fetch admin data';
+        console.error('AdminDashboard fetch error:', listingsError || profilesError);
+        setError(errMsg);
+        return;
       }
 
-      const validListings = listingsData || [];
-      const validPending = pendingData || [];
-      const validProfiles = profilesData || [];
+      // Filter the listings array in Javascript to find pending approvals
+      const validListings = listings || [];
+      const validProfiles = profiles || [];
+      const pending = validListings.filter((l) => l.premium_status === 'pending');
 
-      // Count active golden pins from real Supabase listings
-      const activePremCount = validListings.filter(isListingPremiumActive).length;
+      // Update states as requested
+      setTotalListings(validListings.length);
+      setTotalUsers(validProfiles.length);
+      setPendingApprovals(pending);
 
+      // Keep listing & user collections in sync
+      setAllListings(validListings);
+      setPendingListings(pending);
+      setUsersList(validProfiles);
       setStats({
         totalUsers: validProfiles.length,
         totalListings: validListings.length,
-        activePremium: activePremCount,
-        pendingApprovals: validPending.length,
+        activePremium: validListings.filter(isListingPremiumActive).length,
+        pendingApprovals: pending.length,
       });
     } catch (err) {
       console.error('Failed to load admin dashboard data from Supabase:', err);
-      toast.error('Could not refresh dashboard data.');
+      setError(err.message || 'Unexpected error fetching admin data');
+      setPendingApprovals([]);
       setPendingListings([]);
       setAllListings([]);
       setUsersList([]);
+      setTotalListings(0);
+      setTotalUsers(0);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -177,7 +175,7 @@ export default function AdminDashboard({
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchAdminData();
   }, []);
 
   // Quick lookup map for user profiles
@@ -211,23 +209,20 @@ export default function AdminDashboard({
       const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
       if (isSupabaseConfigured && supabase) {
-        try {
-          const { error } = await supabase
-            .from('listings')
-            .update({
-              is_premium: true,
-              premium_status: 'approved',
-              premium_expires_at: expiresAt,
-            })
-            .eq('id', listingId);
+        const { error: updateError } = await supabase
+          .from('listings')
+          .update({
+            is_premium: true,
+            premium_status: 'approved',
+            premium_expires_at: expiresAt,
+          })
+          .eq('id', listingId);
 
-          if (error) {
-            console.error('Supabase error updating listing in handleApprove:', error);
-            throw error;
-          }
-        } catch (dbErr) {
-          console.error('Database update failed in handleApprove:', dbErr);
-          throw dbErr;
+        if (updateError) {
+          console.error('Supabase error updating listing in handleApprove:', updateError);
+          toast.error('Failed to approve listing: ' + updateError.message);
+          // IMPORTANT: Do NOT remove the item from the UI state if the update fails
+          return;
         }
       }
 
@@ -245,7 +240,8 @@ export default function AdminDashboard({
         console.error('Storage sync error:', storageErr);
       }
 
-      // Update UI state
+      // Update UI state ONLY on successful database update
+      setPendingApprovals((prev) => prev.filter((item) => item.id !== listingId));
       setPendingListings((prev) => prev.filter((item) => item.id !== listingId));
       setAllListings((prev) =>
         prev.map((item) =>
@@ -302,22 +298,19 @@ export default function AdminDashboard({
       }
 
       if (isSupabaseConfigured && supabase) {
-        try {
-          const { error } = await supabase
-            .from('listings')
-            .update({
-              is_premium: false,
-              premium_status: 'rejected',
-            })
-            .eq('id', listingId);
+        const { error: updateError } = await supabase
+          .from('listings')
+          .update({
+            is_premium: false,
+            premium_status: 'rejected',
+          })
+          .eq('id', listingId);
 
-          if (error) {
-            console.error('Supabase error updating listing in handleReject:', error);
-            throw error;
-          }
-        } catch (dbErr) {
-          console.error('Database update failed in handleReject:', dbErr);
-          throw dbErr;
+        if (updateError) {
+          console.error('Supabase error updating listing in handleReject:', updateError);
+          toast.error('Failed to reject listing: ' + updateError.message);
+          // IMPORTANT: Do NOT remove the item from the UI state if the update fails
+          return;
         }
       }
 
@@ -333,7 +326,8 @@ export default function AdminDashboard({
         console.error('Storage sync error:', storageErr);
       }
 
-      // Update UI state
+      // Update UI state ONLY on successful database update
+      setPendingApprovals((prev) => prev.filter((item) => item.id !== listingId));
       setPendingListings((prev) => prev.filter((item) => item.id !== listingId));
       setAllListings((prev) =>
         prev.map((item) =>
@@ -365,7 +359,7 @@ export default function AdminDashboard({
 
   // Filtered pending listings
   const filteredPending = useMemo(() => {
-    return pendingListings.filter((l) => {
+    return pendingApprovals.filter((l) => {
       if (categoryFilter !== 'all' && (l.main_category || l.mainCategory) !== categoryFilter) {
         return false;
       }
@@ -377,7 +371,18 @@ export default function AdminDashboard({
       }
       return true;
     });
-  }, [pendingListings, categoryFilter, searchQuery]);
+  }, [pendingApprovals, categoryFilter, searchQuery]);
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-24 flex flex-col items-center justify-center min-h-[50vh]">
+        <Toaster position="top-right" />
+        <Loader2 size={44} className="animate-spin text-amber-500 mb-4" />
+        <h3 className="text-base font-bold text-gray-900">Loading Admin Dashboard...</h3>
+        <p className="text-xs text-gray-500 mt-1">Fetching platform data and pending approvals...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -410,7 +415,7 @@ export default function AdminDashboard({
 
         <div className="flex items-center gap-2.5">
           <button
-            onClick={fetchDashboardData}
+            onClick={fetchAdminData}
             disabled={refreshing}
             className="px-3.5 py-2 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
             title="Refresh all data"
@@ -420,94 +425,121 @@ export default function AdminDashboard({
           </button>
         </div>
       </div>
-        {/* 1. Platform Stats Section */}
-        <section className="mb-6">
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2.5">
-            Platform Overview
-          </h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {/* Total Users */}
-            <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg shrink-0">
-                <Users size={22} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-gray-500 font-semibold truncate">Total Users</p>
-                <p className="text-2xl font-black text-gray-900 mt-0.5">
-                  {stats.totalUsers.toLocaleString()}
-                </p>
-              </div>
-            </div>
 
-            {/* Total Listings */}
-            <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg shrink-0">
-                <MapPin size={22} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-gray-500 font-semibold truncate">Total Listings</p>
-                <p className="text-2xl font-black text-gray-900 mt-0.5">
-                  {stats.totalListings.toLocaleString()}
-                </p>
-              </div>
+      {/* Prominent Red Error Box if database query failed */}
+      {error && (
+        <div className="mb-6 p-4 rounded-2xl bg-red-50 border-2 border-red-400 text-red-900 shadow-sm flex items-start gap-3.5 animate-in fade-in">
+          <AlertTriangle className="text-red-600 shrink-0 mt-0.5" size={22} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-xs font-black uppercase tracking-wider text-red-950 flex items-center gap-1.5">
+                <span>Database Query Error</span>
+              </h4>
+              <button
+                type="button"
+                onClick={fetchAdminData}
+                className="text-xs font-bold text-red-700 hover:text-red-950 underline cursor-pointer"
+              >
+                Retry Fetch
+              </button>
             </div>
+            <p className="text-xs font-mono font-medium mt-1.5 text-red-800 break-all bg-red-100/70 p-2.5 rounded-xl border border-red-200">
+              {error}
+            </p>
+          </div>
+        </div>
+      )}
 
-            {/* Active Premium Listings */}
-            <div className="bg-gradient-to-br from-amber-50 to-yellow-50/50 p-4 rounded-2xl border border-amber-200 shadow-xs flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-400 text-slate-950 flex items-center justify-center font-bold text-lg shadow-xs shrink-0">
-                ⭐
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-amber-900 font-bold truncate">Active Golden Pins</p>
-                <p className="text-2xl font-black text-amber-950 mt-0.5">
-                  {stats.activePremium.toLocaleString()}
-                </p>
-              </div>
+      {/* 1. Platform Stats Section */}
+      <section className="mb-6">
+        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2.5">
+          Platform Overview
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Total Users */}
+          <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg shrink-0">
+              <Users size={22} />
             </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 font-semibold truncate">Total Users</p>
+              <p className="text-2xl font-black text-gray-900 mt-0.5">
+                {totalUsers.toLocaleString()}
+              </p>
+            </div>
+          </div>
 
-            {/* Pending Approvals */}
-            <div className={`p-4 rounded-2xl border shadow-xs flex items-center gap-3.5 transition-all ${
-              stats.pendingApprovals > 0
+          {/* Total Listings */}
+          <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg shrink-0">
+              <MapPin size={22} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 font-semibold truncate">Total Listings</p>
+              <p className="text-2xl font-black text-gray-900 mt-0.5">
+                {totalListings.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          {/* Active Premium Listings */}
+          <div className="bg-gradient-to-br from-amber-50 to-yellow-50/50 p-4 rounded-2xl border border-amber-200 shadow-xs flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-400 text-slate-950 flex items-center justify-center font-bold text-lg shadow-xs shrink-0">
+              ⭐
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-amber-900 font-bold truncate">Active Golden Pins</p>
+              <p className="text-2xl font-black text-amber-950 mt-0.5">
+                {stats.activePremium.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          {/* Pending Approvals */}
+          <div
+            className={`p-4 rounded-2xl border shadow-xs flex items-center gap-3.5 transition-all ${
+              pendingApprovals.length > 0
                 ? 'bg-amber-100/60 border-amber-300 ring-2 ring-amber-400/20'
                 : 'bg-white border-gray-200/80'
-            }`}>
-              <div className="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg shrink-0">
-                <Clock size={22} className={stats.pendingApprovals > 0 ? 'animate-pulse' : ''} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-amber-900 font-bold truncate">Pending Approvals</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-2xl font-black text-amber-950">
-                    {stats.pendingApprovals.toLocaleString()}
+            }`}
+          >
+            <div className="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg shrink-0">
+              <Clock size={22} className={pendingApprovals.length > 0 ? 'animate-pulse' : ''} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-amber-900 font-bold truncate">Pending Approvals</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-2xl font-black text-amber-950">
+                  {pendingApprovals.length.toLocaleString()}
+                </span>
+                {pendingApprovals.length > 0 && (
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full animate-bounce">
+                    Action Needed
                   </span>
-                  {stats.pendingApprovals > 0 && (
-                    <span className="text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full animate-bounce">
-                      Action Needed
-                    </span>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* 2. Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-gray-200 pb-2 mb-5 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('approvals')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'approvals'
-                ? 'bg-amber-500 text-slate-950 shadow-sm'
-                : 'bg-white hover:bg-gray-100 text-gray-600'
-            }`}
-          >
-            <span>⭐ Golden Pin Approvals</span>
-            {pendingListings.length > 0 && (
-              <span className="bg-slate-950 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
-                {pendingListings.length}
-              </span>
-            )}
-          </button>
+      {/* 2. Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-gray-200 pb-2 mb-5 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('approvals')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'approvals'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'bg-white hover:bg-gray-100 text-gray-600'
+          }`}
+        >
+          <span>⭐ Golden Pin Approvals</span>
+          {pendingApprovals.length > 0 && (
+            <span className="bg-slate-950 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
+              {pendingApprovals.length}
+            </span>
+          )}
+        </button>
 
           <button
             onClick={() => setActiveTab('listings')}
