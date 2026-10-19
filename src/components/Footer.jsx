@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { MapPin, ShieldCheck, Heart } from 'lucide-react';
+import { PLATFORM_CONFIG } from '../config/platformConfig';
 
 export default function Footer() {
   return (
@@ -12,7 +13,7 @@ export default function Footer() {
             Selin<span className="text-emerald-600">map</span>
           </span>
           <span className="text-gray-300">|</span>
-          <span>&copy; 2024 Selinmap. All rights reserved.</span>
+          <span>{PLATFORM_CONFIG.copyright}</span>
         </div>
 
         {/* Center: Badge */}

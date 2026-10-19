@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Mail, Phone, MapPin, Send, CheckCircle2, ArrowLeft, MessageSquare, Clock } from 'lucide-react';
+import { Mail, Phone, Send, CheckCircle2, ArrowLeft, MessageSquare, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { PLATFORM_CONFIG } from '../config/platformConfig';
 
 export default function ContactUs() {
   const navigate = useNavigate();
@@ -68,8 +69,8 @@ export default function ContactUs() {
                 </div>
                 <div>
                   <span className="text-gray-400 font-semibold block text-[10px]">Email Support</span>
-                  <a href="mailto:support@selinmap.com" className="font-bold text-gray-800 hover:text-emerald-600 transition-colors">
-                    support@selinmap.com
+                  <a href={`mailto:${PLATFORM_CONFIG.contact.email}`} className="font-bold text-gray-800 hover:text-emerald-600 transition-colors">
+                    {PLATFORM_CONFIG.contact.email}
                   </a>
                 </div>
               </div>
@@ -80,22 +81,10 @@ export default function ContactUs() {
                 </div>
                 <div>
                   <span className="text-gray-400 font-semibold block text-[10px]">Helpline & WhatsApp</span>
-                  <a href="tel:+94112345678" className="font-bold text-gray-800 hover:text-blue-600 transition-colors">
-                    +94 11 234 5678
+                  <a href={`tel:${PLATFORM_CONFIG.contact.phone.replace(/\s+/g, '')}`} className="font-bold text-gray-800 hover:text-blue-600 transition-colors">
+                    {PLATFORM_CONFIG.contact.phone}
                   </a>
-                  <span className="text-[10px] text-gray-400 block mt-0.5">+94 77 123 4567 (WhatsApp)</span>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 text-xs">
-                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                  <MapPin size={16} />
-                </div>
-                <div>
-                  <span className="text-gray-400 font-semibold block text-[10px]">Headquarters</span>
-                  <p className="font-bold text-gray-800 leading-snug">
-                    Level 14, West Tower,<br />World Trade Center, Colombo 01, Sri Lanka
-                  </p>
+                  <span className="text-[10px] text-gray-400 block mt-0.5">{PLATFORM_CONFIG.contact.whatsapp} (WhatsApp)</span>
                 </div>
               </div>
 
@@ -106,8 +95,7 @@ export default function ContactUs() {
                 <div>
                   <span className="text-gray-400 font-semibold block text-[10px]">Operating Hours</span>
                   <p className="font-bold text-gray-800">
-                    Mon - Sat: 8:30 AM - 6:00 PM<br />
-                    <span className="text-gray-400 font-normal">Sunday: Closed (Golden Pin verification active)</span>
+                    {PLATFORM_CONFIG.contact.operatingHours}
                   </p>
                 </div>
               </div>

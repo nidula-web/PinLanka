@@ -17,7 +17,7 @@ import {
   AlertCircle,
   Sparkles,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, useDragControls } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import ImageCarousel from './ImageCarousel';
 import PremiumUpgradeModal from './PremiumUpgradeModal';
@@ -289,6 +289,7 @@ export default function ListingDetailSheet({
   if (!initialListing) return null;
 
   const navigate = useNavigate();
+  const dragControls = useDragControls();
   const [currentListing, setCurrentListing] = useState(initialListing);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
@@ -465,6 +466,8 @@ export default function ListingDetailSheet({
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
         drag="y"
+        dragControls={dragControls}
+        dragListener={false}
         dragConstraints={{ top: 0 }}
         dragElastic={{ top: 0, bottom: 0.6 }}
         onDragEnd={(e, info) => {
@@ -472,14 +475,18 @@ export default function ListingDetailSheet({
             onClose();
           }
         }}
-        className="fixed bottom-0 left-0 right-0 z-[2001] bg-white rounded-t-3xl shadow-2xl max-h-[88vh] overflow-y-auto touch-pan-y"
+        className="fixed bottom-0 left-0 right-0 z-[2001] bg-white rounded-t-3xl shadow-2xl max-h-[88vh] flex flex-col overflow-hidden"
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing select-none">
-          <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+        {/* Sticky Header with Drag Handle */}
+        <div
+          onPointerDown={(e) => dragControls.start(e)}
+          className="sticky top-0 z-20 bg-white/95 backdrop-blur-md pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none select-none shrink-0 border-b border-gray-100/60"
+        >
+          <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto my-0.5" />
         </div>
 
-        <div className="px-5 pb-6">
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto touch-pan-y px-5 pt-1 pb-8">
           {/* Image carousel */}
           <ImageCarousel images={listing.imageUrls} />
 
@@ -511,10 +518,10 @@ export default function ListingDetailSheet({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 shrink-0"
+              className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 shrink-0 transition-colors cursor-pointer"
               title="Close details"
             >
-              <X size={20} />
+              <X size={18} className="stroke-[1.75]" />
             </button>
           </div>
 
@@ -753,31 +760,33 @@ export default function ListingDetailSheet({
               </div>
             );
           })()}
+        </div>
 
-          {/* Action buttons: WhatsApp, Call, Directions */}
-          <div className="grid grid-cols-3 gap-2 pt-1">
+        {/* Premium Mobile Sticky Bottom Bar */}
+        <div className="sticky bottom-0 left-0 w-full p-3.5 sm:p-4 bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50 shrink-0">
+          <div className="max-w-xl mx-auto grid grid-cols-3 gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => handleContactClick('whatsapp')}
-              className="min-h-[46px] flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-bold py-3 px-2 rounded-xl text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
+              className="min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-bold py-3 px-3 sm:px-6 rounded-xl sm:rounded-2xl text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
             >
-              <MessageCircle size={18} className="shrink-0" />
+              <MessageCircle size={18} className="stroke-[1.75] shrink-0" />
               <span>WhatsApp</span>
             </button>
             <button
               type="button"
               onClick={() => handleContactClick('call')}
-              className="min-h-[46px] flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold py-3 px-2 rounded-xl text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
+              className="min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold py-3 px-3 sm:px-6 rounded-xl sm:rounded-2xl text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
             >
-              <Phone size={18} className="shrink-0" />
+              <Phone size={18} className="stroke-[1.75] shrink-0" />
               <span>Call</span>
             </button>
             <button
               type="button"
               onClick={handleDirections}
-              className="min-h-[46px] flex items-center justify-center gap-1.5 bg-gray-900 hover:bg-gray-800 active:scale-[0.98] text-white font-bold py-3 px-2 rounded-xl text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
+              className="min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 bg-gray-900 hover:bg-gray-800 active:scale-[0.98] text-white font-bold py-3 px-3 sm:px-6 rounded-xl sm:rounded-2xl text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
             >
-              <Navigation size={18} className="shrink-0" />
+              <Navigation size={18} className="stroke-[1.75] shrink-0" />
               <span>Directions</span>
             </button>
           </div>

@@ -15,6 +15,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { updateListing } from '../lib/storage';
 import { uploadImage } from '../lib/uploadImage';
 import { supabase } from '../lib/supabase';
+import { PLATFORM_CONFIG } from '../config/platformConfig';
 
 /**
  * Dynamic pricing helper function:
@@ -31,23 +32,6 @@ export function getPremiumPrice(mainCategory) {
   }
   return 999;
 }
-
-const BANK_ACCOUNTS = [
-  {
-    bank: 'Commercial Bank',
-    accountNumber: '123456789',
-    branch: 'Colombo',
-    accountName: 'Selinmap Pvt Ltd',
-    logo: '🏦',
-  },
-  {
-    bank: 'Bank of Ceylon (BOC)',
-    accountNumber: '987654321',
-    branch: 'Colombo',
-    accountName: 'Selinmap Pvt Ltd',
-    logo: '🏛️',
-  },
-];
 
 export default function PremiumUpgradeModal({
   open,
@@ -260,35 +244,39 @@ export default function PremiumUpgradeModal({
               Please transfer or deposit <strong>Rs. {price.toLocaleString()}</strong> to either bank account below and upload your payment slip:
             </div>
 
-            {/* Sri Lankan Bank Accounts */}
+            {/* Sri Lankan Bank Accounts from Centralized Config */}
             <div className="space-y-2">
-              {BANK_ACCOUNTS.map((acc) => (
-                <div
-                  key={acc.bank}
-                  className="bg-gray-50 border border-gray-200 rounded-2xl p-3 text-xs flex items-center justify-between gap-2.5 hover:border-amber-300 transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 font-bold text-gray-900">
-                      <span>{acc.logo}</span>
-                      <span className="truncate">{acc.bank}</span>
+              {PLATFORM_CONFIG.bankDetails.map((acc) => {
+                const accNum = acc.account || acc.accountNumber;
+                const accName = acc.name || acc.accountName;
+                return (
+                  <div
+                    key={acc.bank}
+                    className="bg-gray-50 border border-gray-200 rounded-2xl p-3 text-xs flex items-center justify-between gap-2.5 hover:border-amber-300 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 font-bold text-gray-900">
+                        <span>{acc.logo || '🏦'}</span>
+                        <span className="truncate">{acc.bank}</span>
+                      </div>
+                      <div className="mt-1 font-mono font-bold text-gray-800 text-sm flex items-center gap-2">
+                        <span>Acc: {accNum}</span>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(accNum, `${acc.bank} Account`)}
+                          className="text-gray-400 hover:text-amber-600 transition-colors cursor-pointer"
+                          title="Copy account number"
+                        >
+                          <Copy size={13} />
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        Branch: <strong>{acc.branch}</strong> • Name: <strong>{accName}</strong>
+                      </p>
                     </div>
-                    <div className="mt-1 font-mono font-bold text-gray-800 text-sm flex items-center gap-2">
-                      <span>Acc: {acc.accountNumber}</span>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(acc.accountNumber, `${acc.bank} Account`)}
-                        className="text-gray-400 hover:text-amber-600 transition-colors cursor-pointer"
-                        title="Copy account number"
-                      >
-                        <Copy size={13} />
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-gray-500 mt-0.5">
-                      Branch: <strong>{acc.branch}</strong> • Name: <strong>{acc.accountName}</strong>
-                    </p>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Upload Payment Slip Input */}

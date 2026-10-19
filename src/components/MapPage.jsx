@@ -332,8 +332,8 @@ export default function MapPage({
             >
               <Popup
                 className="selinmap-pin-popup"
-                maxWidth={220}
-                minWidth={170}
+                maxWidth={230}
+                minWidth={180}
                 closeButton={false}
               >
                 <div
@@ -341,21 +341,21 @@ export default function MapPage({
                     onMarkerClick &&
                     onMarkerClick(normalizeListing ? normalizeListing(listing) : listing)
                   }
-                  className="cursor-pointer w-full max-w-[200px] overflow-hidden text-left font-sans select-none"
+                  className="cursor-pointer w-full max-w-[210px] overflow-hidden text-left font-sans select-none rounded-2xl"
                 >
                   {pinImgUrl ? (
                     <img
                       src={pinImgUrl}
                       alt={listing.title}
-                      className="w-full aspect-square object-cover rounded-t-md bg-gray-200"
+                      className="w-full aspect-[4/3] object-cover bg-gray-100"
                       loading="lazy"
                     />
                   ) : (
-                    <div className="w-full aspect-square object-cover rounded-t-md bg-gray-200 flex items-center justify-center text-gray-400 text-xs font-semibold">
+                    <div className="w-full aspect-[4/3] object-cover bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-semibold">
                       No Photo
                     </div>
                   )}
-                  <div className="p-2.5 bg-white rounded-b-md">
+                  <div className="p-3 bg-white">
                     <h4 className="text-xs font-bold text-gray-900 truncate leading-snug">
                       {listing.title}
                     </h4>

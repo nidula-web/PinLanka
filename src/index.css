@@ -96,17 +96,17 @@ html, body, #root {
 /* Mobile-First Leaflet Popup Container */
 .leaflet-popup-content-wrapper {
   padding: 0 !important;
-  border-radius: 14px !important;
+  border-radius: 18px !important;
   overflow: hidden !important;
-  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.22), 0 4px 12px rgba(0, 0, 0, 0.12) !important;
-  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.18), 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+  border: none !important;
 }
 
 .leaflet-popup-content {
   margin: 0 !important;
   line-height: 1.4 !important;
-  width: 190px !important;
-  max-width: min(80vw, 220px) !important;
+  width: 200px !important;
+  max-width: min(80vw, 230px) !important;
 }
 
 .leaflet-popup-tip-container {
