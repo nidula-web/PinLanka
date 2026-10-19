@@ -428,13 +428,23 @@ export async function saveListing(listing, currentUserId) {
         seller_phone: listing.sellerPhone || '',
       };
 
+      const sanitize = (obj) => {
+        const out = { ...obj };
+        Object.keys(out).forEach((key) => {
+          if (out[key] === '' || out[key] === null || out[key] === undefined) {
+            delete out[key];
+          }
+        });
+        return out;
+      };
+
       let insertData = null;
       let insertError = null;
 
       // 1. Attempt insert with extended fields
       const firstTry = await supabase
         .from('listings')
-        .insert([extendedRow])
+        .insert([sanitize(extendedRow)])
         .select()
         .single();
 
@@ -449,7 +459,7 @@ export async function saveListing(listing, currentUserId) {
         ) {
           const secondTry = await supabase
             .from('listings')
-            .insert([baseRow])
+            .insert([sanitize(baseRow)])
             .select()
             .single();
 

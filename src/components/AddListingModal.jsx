@@ -303,26 +303,18 @@ export default function AddListingModal({
         typeof user?.id === 'string' &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user?.id);
 
+      // 1. Base listing fields common to all categories
       const newListingData = {
         user_id: isUUID ? user.id : null,
-        title,
+        title: title.trim(),
         price: Number(price),
         price_tag: priceTag || generateDefaultPriceTag(price) || 'N/A',
         main_category: mainCategory || 'others',
         sub_category: activeSubCategory || null,
-        property_type: mainCategory === 'real_estate' ? activeSubCategory : null,
-        vehicle_type: mainCategory === 'vehicles' ? activeSubCategory : null,
-        brand: effectiveBrand || null,
-        model: model || null,
-        year: year ? String(year) : null,
-        mileage: mileage || null,
-        transmission: transmission || null,
-        condition: condition || null,
-        size: size || null,
-        location_name: locationName || 'Sri Lanka',
+        location_name: locationName.trim() || 'Sri Lanka',
         lat: numLat,
         lng: numLng,
-        description: description || '',
+        description: description.trim(),
         image_urls: imageUrls,
         seller_name: profile?.name || user?.email?.split('@')[0] || 'Seller',
         seller_phone: phone || profile?.phone || '',
@@ -330,18 +322,74 @@ export default function AddListingModal({
         is_premium: false,
       };
 
-      // 2. Wrap supabase.from('listings').insert(...) in strict try/catch block
-      // 3. IMMEDIATELY check for errors:
+      // 2. Ensure that category-specific fields are ONLY added to the payload if they match main_category
+      if (mainCategory === 'real_estate') {
+        if (propertyType || activeSubCategory) {
+          newListingData.property_type = propertyType || activeSubCategory;
+        }
+        if (size && size.trim()) {
+          newListingData.size = size.trim();
+        }
+      } else if (mainCategory === 'vehicles') {
+        if (vehicleType || activeSubCategory) {
+          newListingData.vehicle_type = vehicleType || activeSubCategory;
+        }
+        if (effectiveBrand && effectiveBrand.trim()) {
+          newListingData.brand = effectiveBrand.trim();
+        }
+        if (model && model.trim()) {
+          newListingData.model = model.trim();
+        }
+        if (year && String(year).trim()) {
+          newListingData.year = String(year).trim();
+        }
+        if (mileage && mileage.trim()) {
+          newListingData.mileage = mileage.trim();
+        }
+        if (transmission) {
+          newListingData.transmission = transmission;
+        }
+      } else if (mainCategory === 'electronics') {
+        if (effectiveBrand && effectiveBrand.trim()) {
+          newListingData.brand = effectiveBrand.trim();
+        }
+        if (model && model.trim()) {
+          newListingData.model = model.trim();
+        }
+        if (condition) {
+          newListingData.condition = condition;
+        }
+      } else if (mainCategory === 'others') {
+        if (effectiveBrand && effectiveBrand.trim()) {
+          newListingData.brand = effectiveBrand.trim();
+        }
+        if (model && model.trim()) {
+          newListingData.model = model.trim();
+        }
+        if (condition) {
+          newListingData.condition = condition;
+        }
+      }
+
+      // 3. Strictly sanitize: remove all keys from the payload that have empty strings "", null, or undefined
+      const payload = { ...newListingData };
+      Object.keys(payload).forEach((key) => {
+        if (payload[key] === '' || payload[key] === null || payload[key] === undefined) {
+          delete payload[key];
+        }
+      });
+
+      // 4. Wrap supabase.from('listings').insert(...) in strict try/catch block
       if (isSupabaseConfigured && supabase) {
-        const { data, error } = await supabase.from('listings').insert([newListingData]).select();
+        const { data, error } = await supabase.from('listings').insert([payload]).select();
         if (error) throw error;
 
         if (onSave) {
-          await onSave(data && data[0] ? normalizeListing(data[0]) : newListingData);
+          await onSave(data && data[0] ? normalizeListing(data[0]) : payload);
         }
       } else {
         if (onSave) {
-          await onSave(newListingData);
+          await onSave(payload);
         }
       }
 
@@ -366,6 +414,7 @@ export default function AddListingModal({
       onClose();
     } catch (err) {
       console.error('Create Listing Error:', err);
+      alert('Failed to create listing: ' + (err.message || 'Please try again.'));
       toast.error('Failed to create listing: ' + (err.message || 'Please try again.'));
       // Keep modal open and form state intact
     } finally {
