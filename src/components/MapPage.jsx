@@ -261,6 +261,7 @@ export default function MapPage({
       <MapContainer
         center={[7.8731, 80.7718]} // center of Sri Lanka
         zoom={8}
+        maxZoom={22}
         className="w-full h-full z-0"
         ref={mapRef}
         zoomControl={false}
@@ -270,7 +271,8 @@ export default function MapPage({
             <TileLayer
               attribution="&copy; Esri"
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              maxZoom={19}
+              maxNativeZoom={17}
+              maxZoom={22}
             />
           </LayersControl.BaseLayer>
 
@@ -278,7 +280,8 @@ export default function MapPage({
             <TileLayer
               attribution="&copy; OpenStreetMap contributors"
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              maxZoom={19}
+              maxNativeZoom={19}
+              maxZoom={22}
             />
           </LayersControl.BaseLayer>
         </LayersControl>

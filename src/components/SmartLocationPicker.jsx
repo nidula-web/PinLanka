@@ -366,6 +366,7 @@ export default function SmartLocationPicker({
         <MapContainer
           center={markerPosition}
           zoom={14}
+          maxZoom={22}
           scrollWheelZoom={true}
           className="w-full h-full z-0 cursor-crosshair"
           attributionControl={false}
@@ -375,7 +376,8 @@ export default function SmartLocationPicker({
               <TileLayer
                 attribution="&copy; Esri"
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                maxZoom={19}
+                maxNativeZoom={17}
+                maxZoom={22}
               />
             </LayersControl.BaseLayer>
 
@@ -383,7 +385,8 @@ export default function SmartLocationPicker({
               <TileLayer
                 attribution="&copy; OpenStreetMap contributors"
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                maxZoom={19}
+                maxNativeZoom={19}
+                maxZoom={22}
               />
             </LayersControl.BaseLayer>
           </LayersControl>

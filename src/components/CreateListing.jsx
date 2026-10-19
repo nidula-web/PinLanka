@@ -69,15 +69,15 @@ export function MapUpdater({ center }) {
   return null;
 }
 
-// Invalidate size helper when inside modal
-function InvalidateSizeEffect() {
+// Invalidate size helper when inside modal or toggling fullscreen
+function InvalidateSizeEffect({ isExpanded }) {
   const map = useMap();
   useEffect(() => {
     const timer = setTimeout(() => {
       map.invalidateSize();
-    }, 250);
+    }, 200);
     return () => clearTimeout(timer);
-  }, [map]);
+  }, [map, isExpanded]);
   return null;
 }
 
@@ -252,6 +252,7 @@ export default function CreateListing({
   const [isLocating, setIsLocating] = useState(false);
   const [locationFeedback, setLocationFeedback] = useState('');
   const markerRef = useRef(null);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
   // Images & submit state
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -1129,11 +1130,39 @@ export default function CreateListing({
                     </p>
                   )}
 
-                  {/* Leaflet MapContainer with MapUpdater */}
-                  <div className="relative w-full h-[250px] rounded-2xl overflow-hidden border border-gray-200/90 shadow-inner z-0 group">
+                  {/* Leaflet MapContainer with Fullscreen Toggle */}
+                  <div
+                    className={
+                      isMapExpanded
+                        ? 'fixed inset-0 z-[9999] bg-white'
+                        : 'relative h-[400px] w-full rounded-lg overflow-hidden border border-gray-300'
+                    }
+                  >
+                    {/* Floating Controls over the Map */}
+                    {isMapExpanded && (
+                      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[400]">
+                        <button
+                          type="button"
+                          onClick={() => setIsMapExpanded(false)}
+                          className="bg-blue-600 text-white px-8 py-3 rounded-full shadow-xl font-semibold border-2 border-white hover:bg-blue-700 cursor-pointer transition-all active:scale-95"
+                        >
+                          ✓ Confirm Location
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setIsMapExpanded(!isMapExpanded)}
+                      className="absolute bottom-6 right-4 z-[400] bg-white p-3 rounded-full shadow-lg border border-gray-200 text-gray-700 hover:bg-gray-50 cursor-pointer transition-all active:scale-95 text-xs font-bold"
+                    >
+                      {isMapExpanded ? '↙️ Minimize Map' : '⛶ Maximize Map'}
+                    </button>
+
                     <MapContainer
                       center={markerPosition}
                       zoom={14}
+                      maxZoom={22}
                       scrollWheelZoom={true}
                       className="w-full h-full z-0 cursor-crosshair"
                       attributionControl={false}
@@ -1143,7 +1172,8 @@ export default function CreateListing({
                           <TileLayer
                             attribution="&copy; Esri"
                             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                            maxZoom={19}
+                            maxNativeZoom={17}
+                            maxZoom={22}
                           />
                         </LayersControl.BaseLayer>
 
@@ -1151,7 +1181,8 @@ export default function CreateListing({
                           <TileLayer
                             attribution="&copy; OpenStreetMap contributors"
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            maxZoom={19}
+                            maxNativeZoom={19}
+                            maxZoom={22}
                           />
                         </LayersControl.BaseLayer>
                       </LayersControl>
@@ -1168,16 +1199,16 @@ export default function CreateListing({
                       <MapClickHandler onLocationChange={updateCoordinates} />
                       {/* Leaflet MapUpdater Component */}
                       <MapUpdater center={markerPosition} />
-                      <InvalidateSizeEffect />
+                      <InvalidateSizeEffect isExpanded={isMapExpanded} />
                     </MapContainer>
 
                     {/* Floating guidance overlay */}
-                    <div className="absolute top-2 left-2 z-[1000] bg-black/65 backdrop-blur-xs text-white text-[10px] font-semibold px-2.5 py-1 rounded-full pointer-events-none shadow-sm flex items-center gap-1">
+                    <div className="absolute top-2 left-2 z-[400] bg-black/65 backdrop-blur-xs text-white text-[10px] font-semibold px-2.5 py-1 rounded-full pointer-events-none shadow-sm flex items-center gap-1">
                       <span>🖐️ Drag pin or tap map to position</span>
                     </div>
 
                     {/* Coordinates badge pill */}
-                    <div className="absolute bottom-2 right-2 z-[1000] bg-white/95 backdrop-blur-xs text-gray-700 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full shadow-sm border border-gray-200/80 pointer-events-none flex items-center gap-1">
+                    <div className="absolute bottom-6 left-4 z-[400] bg-white/95 backdrop-blur-xs text-gray-700 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full shadow-sm border border-gray-200/80 pointer-events-none flex items-center gap-1">
                       <MapPin size={11} className="text-emerald-600" />
                       <span>
                         {markerPosition[0].toFixed(4)}, {markerPosition[1].toFixed(4)}
