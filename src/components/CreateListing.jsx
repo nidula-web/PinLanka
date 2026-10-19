@@ -18,7 +18,7 @@ const Autocomplete =
     ? GoogleAutocomplete.default
     : function AutocompleteFallback({ onPlaceSelected, apiKey, options, ...rest }) {
         const { ref } = usePlacesWidget({
-          apiKey: apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+          apiKey,
           onPlaceSelected,
           options,
         });
@@ -272,8 +272,6 @@ export default function CreateListing({
   const [imagePreviews, setImagePreviews] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const fileRef = useRef(null);
-
-  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
   // Auto-fill phone and profile details when opened
   useEffect(() => {
@@ -1063,7 +1061,6 @@ export default function CreateListing({
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <div className="relative flex-1">
                       <Autocomplete
-                        apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
                         onPlaceSelected={handlePlaceSelected}
                         options={{
                           types: ['geocode', 'establishment'],

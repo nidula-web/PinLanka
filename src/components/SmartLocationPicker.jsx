@@ -18,7 +18,7 @@ const Autocomplete =
     ? GoogleAutocomplete.default
     : function AutocompleteFallback({ onPlaceSelected, apiKey, options, ...rest }) {
         const { ref } = usePlacesWidget({
-          apiKey: apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+          apiKey,
           onPlaceSelected,
           options,
         });
@@ -115,8 +115,6 @@ export default function SmartLocationPicker({
   const [isLocating, setIsLocating] = useState(false);
   const [feedback, setFeedback] = useState('');
   const markerRef = useRef(null);
-
-  const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
   // Sync position if incoming lat/lng props change from outside
   useEffect(() => {
@@ -234,7 +232,6 @@ export default function SmartLocationPicker({
         {/* Google Places Autocomplete Input */}
         <div className="relative flex-1">
           <Autocomplete
-            apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
             onPlaceSelected={handlePlaceSelected}
             options={{
               types: ['geocode', 'establishment'],
