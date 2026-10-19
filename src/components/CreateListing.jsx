@@ -8,7 +8,18 @@ import {
   LayersControl,
 } from 'react-leaflet';
 import L from 'leaflet';
-import Autocomplete from 'react-google-autocomplete';
+import GoogleAutocomplete, { usePlacesWidget } from 'react-google-autocomplete';
+
+// Resolve Autocomplete safely across Vite / CJS interop
+const Autocomplete =
+  typeof GoogleAutocomplete === 'function' || GoogleAutocomplete?.$$typeof
+    ? GoogleAutocomplete
+    : GoogleAutocomplete?.default && (typeof GoogleAutocomplete.default === 'function' || GoogleAutocomplete.default?.$$typeof)
+    ? GoogleAutocomplete.default
+    : function AutocompleteFallback({ onPlaceSelected, apiKey, options, ...rest }) {
+        const { ref } = usePlacesWidget({ apiKey, onPlaceSelected, options });
+        return <input ref={ref} {...rest} />;
+      };
 import {
   X,
   MapPin,
