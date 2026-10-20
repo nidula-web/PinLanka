@@ -10,6 +10,7 @@ import ProfilePage from './components/ProfilePage';
 import SellerProfilePage from './components/SellerProfilePage';
 import AdminDashboard from './components/AdminDashboard';
 import MyListings from './components/MyListings';
+import Navbar from './components/Navbar';
 import NotificationBell from './components/NotificationBell';
 import UserMenu from './components/UserMenu';
 import ContactUs from './components/ContactUs';
@@ -223,75 +224,15 @@ export default function App() {
       {/* Unified Modern Marketplace Header / Navbar */}
       <header className="bg-white/95 backdrop-blur-md border-b border-gray-200/80 z-[1001] shrink-0 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
         {/* Row 1: Brand Logo & User Actions */}
-        <div className="h-14 px-4 sm:px-6 flex items-center justify-between">
-          <div
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2.5 cursor-pointer select-none group"
-            title="Return to Home"
-          >
-            <img
-              src="/pin-logo.svg"
-              alt="Sellinmap Logo"
-              className="w-8 h-8 object-contain shrink-0 transition-transform group-hover:scale-105"
-            />
-            <div className="flex items-baseline gap-1.5">
-              <h1 className="text-lg font-black text-gray-900 tracking-tight">
-                Sellin<span className="text-emerald-600">map</span>
-              </h1>
-              <span className="hidden sm:inline-block text-[10px] font-bold text-gray-400 border-l border-gray-200 pl-2 uppercase tracking-wider">
-                Marketplace
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* If on /admin, quick Back to Map button */}
-            {location.pathname === '/admin' && (
-              <button
-                onClick={() => navigate('/')}
-                className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-gray-950 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full border border-gray-200 transition-all cursor-pointer"
-                title="Return to Map"
-              >
-                <Map size={14} />
-                <span className="hidden sm:inline">Back to Map</span>
-              </button>
-            )}
-
-            {/* Desktop shortcut to My Ads (clean, subtle text link without heavy gradients) */}
-            {user && location.pathname !== '/admin' && (
-              <button
-                onClick={() => setShowMyListings(true)}
-                className="hidden md:flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 px-3 py-1.5 rounded-full transition-colors cursor-pointer"
-                title="My Ads & Golden Pins"
-              >
-                <span className="text-amber-500">⭐</span>
-                <span>My Ads</span>
-              </button>
-            )}
-
-            {/* Notification Bell */}
-            <NotificationBell user={user} />
-
-            {/* Post Ad Button */}
-            <button
-              onClick={handleAddClick}
-              className="flex items-center gap-1.5 bg-gray-950 hover:bg-gray-800 active:scale-95 text-white text-xs font-bold px-3.5 sm:px-4 py-1.5 rounded-full shadow-xs hover:shadow transition-all cursor-pointer"
-            >
-              <Plus size={15} strokeWidth={2.2} />
-              <span>Post Ad</span>
-            </button>
-
-            {/* Unified User Menu (Airbnb style) */}
-            <UserMenu
-              user={user}
-              profile={profile}
-              onOpenProfile={() => setShowProfile(true)}
-              onOpenMyListings={() => setShowMyListings(true)}
-              onOpenAuth={() => setShowAuthModal(true)}
-              onSignOut={handleSignOut}
-            />
-          </div>
-        </div>
+        <Navbar
+          user={user}
+          profile={profile}
+          onAddClick={handleAddClick}
+          onOpenMyListings={() => setShowMyListings(true)}
+          onOpenProfile={() => setShowProfile(true)}
+          onOpenAuth={() => setShowAuthModal(true)}
+          onSignOut={handleSignOut}
+        />
 
         {/* Row 2: Integrated Category Navigation & Filters (only for marketplace views) */}
         {!['/admin', '/contact', '/privacy', '/terms'].includes(location.pathname) && (

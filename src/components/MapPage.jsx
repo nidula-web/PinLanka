@@ -289,7 +289,7 @@ export default function MapPage({
         ref={mapRef}
         zoomControl={false}
       >
-        <LayersControl position="topright">
+        <LayersControl position="bottomleft">
           <LayersControl.BaseLayer checked name="🛰️ Satellite View">
             <TileLayer
               attribution="&copy; Google Maps"

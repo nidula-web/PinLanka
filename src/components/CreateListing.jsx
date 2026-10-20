@@ -1285,10 +1285,11 @@ export default function CreateListing({
                       zoom={14}
                       maxZoom={22}
                       scrollWheelZoom={true}
+                      zoomControl={false}
                       className={`w-full h-full z-0 ${isDrawingMode ? 'cursor-crosshair' : ''}`}
                       attributionControl={false}
                     >
-                      <LayersControl position="topright">
+                      <LayersControl position="bottomleft">
                         <LayersControl.BaseLayer checked name="🛰️ Satellite View">
                           <TileLayer
                             attribution="&copy; Google Maps"

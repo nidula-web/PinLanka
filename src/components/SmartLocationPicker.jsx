@@ -368,10 +368,11 @@ export default function SmartLocationPicker({
           zoom={14}
           maxZoom={22}
           scrollWheelZoom={true}
+          zoomControl={false}
           className="w-full h-full z-0 cursor-crosshair"
           attributionControl={false}
         >
-          <LayersControl position="topright">
+          <LayersControl position="bottomleft">
             <LayersControl.BaseLayer checked name="🛰️ Satellite View">
               <TileLayer
                 attribution="&copy; Google Maps"

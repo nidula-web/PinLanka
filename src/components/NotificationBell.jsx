@@ -153,7 +153,7 @@ export default function NotificationBell({ user }) {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-[2000] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute right-0 mt-2 w-[90vw] max-w-[320px] sm:w-80 bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden z-50 origin-top-right animate-in fade-in zoom-in-95 duration-150">
           {/* Header */}
           <div className="px-4 py-3 bg-gray-50/80 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
