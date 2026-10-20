@@ -17,17 +17,13 @@ export default function Navbar({
 
   return (
     <div className="h-14 px-4 sm:px-6 flex items-center justify-between">
-      <Link
-        to="/"
-        className="flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none group"
-        title="Return to Home"
-      >
+      <Link to="/" className="flex items-center justify-center gap-1">
         <img
           src="/pin-logo.svg"
           alt="Sellinmap Logo"
-          className="w-8 h-8 object-contain shrink-0 transition-transform group-hover:scale-105"
+          className="w-8 h-8 object-contain shrink-0"
         />
-        <div className="flex items-baseline gap-1.5">
+        <div className="flex items-baseline">
           <span className="text-xl font-bold tracking-tight text-blue-600">
             Sellin<span className="text-emerald-600">map</span>
           </span>

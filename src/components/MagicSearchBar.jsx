@@ -127,14 +127,14 @@ export default function MagicSearchBar({
   return (
     <div
       ref={containerRef}
-      className="absolute top-3.5 left-3 right-16 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-md z-[1000] pointer-events-auto"
+      className="absolute top-4 left-1/2 -translate-x-1/2 w-[92%] sm:w-[400px] z-[400] shadow-lg rounded-md"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
     >
       <form
         onSubmit={handleGeocodeSearch}
-        className="relative flex items-center w-full bg-white/95 backdrop-blur-md rounded-full shadow-lg hover:shadow-xl border border-gray-200/90 px-3.5 py-2 transition-all duration-200 focus-within:ring-2 focus-within:ring-emerald-500/40 focus-within:border-emerald-500 group"
+        className="relative flex items-center w-full bg-white/95 backdrop-blur-md rounded-md border border-gray-200/90 px-3.5 py-2 transition-all duration-200 focus-within:ring-2 focus-within:ring-emerald-500/40 focus-within:border-emerald-500 group"
       >
         {/* Magnifying Glass or Loading Spinner */}
         <div className="flex items-center justify-center shrink-0 text-gray-400 group-focus-within:text-emerald-600 transition-colors">
