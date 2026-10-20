@@ -293,17 +293,16 @@ export default function MapPage({
           <LayersControl.BaseLayer checked name="🛰️ Satellite View">
             <TileLayer
               attribution="&copy; Google Maps"
-              url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
+              url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
               maxZoom={21}
             />
           </LayersControl.BaseLayer>
 
           <LayersControl.BaseLayer name="🗺️ Street View">
             <TileLayer
-              attribution="&copy; OpenStreetMap contributors"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              maxNativeZoom={19}
-              maxZoom={22}
+              attribution="&copy; Google Maps"
+              url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+              maxZoom={21}
             />
           </LayersControl.BaseLayer>
         </LayersControl>
