@@ -845,6 +845,10 @@ export default function AdminDashboard({
                         src={getOptimizedImageUrl(thumb, 'thumbnail')}
                         alt={listing.title}
                         className="w-12 h-12 rounded-xl object-cover bg-gray-100 shrink-0"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://via.placeholder.com/100x100?text=No+Photo';
+                        }}
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">

@@ -58,7 +58,8 @@ export default function ListView({ listings, onListingClick }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {sortedListings.map((item) => {
             const isPremium = isListingPremiumActive(item);
-            const hasImage = item.imageUrls && item.imageUrls.length > 0;
+            const rawImages = item.image_urls || item.imageUrls || (item.imageUrl ? [item.imageUrl] : []);
+            const hasImage = rawImages.length > 0;
             const catIcon = CATEGORY_ICONS[item.mainCategory] || '📦';
             const isOwner = item.sellerType === 'owner';
 
@@ -76,10 +77,14 @@ export default function ListView({ listings, onListingClick }) {
                 <div className="relative w-full aspect-[4/3] bg-gray-200 overflow-hidden">
                   {hasImage ? (
                     <img
-                      src={getOptimizedImageUrl(item.imageUrls[0], 'thumbnail')}
+                      src={getOptimizedImageUrl(rawImages[0], 'thumbnail')}
                       alt={item.title}
                       loading="lazy"
                       className="w-full aspect-[4/3] object-cover bg-gray-200 group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://via.placeholder.com/400x300?text=Error';
+                      }}
                     />
                   ) : (
                     <div className="w-full aspect-[4/3] flex flex-col items-center justify-center text-gray-400 bg-gray-200">
@@ -123,9 +128,9 @@ export default function ListView({ listings, onListingClick }) {
                     </span>
                   </div>
 
-                  {item.imageUrls?.length > 1 && (
+                  {rawImages.length > 1 && (
                     <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-md">
-                      +{item.imageUrls.length - 1} photos
+                      +{rawImages.length - 1} photos
                     </div>
                   )}
                 </div>

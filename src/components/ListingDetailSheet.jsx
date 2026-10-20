@@ -439,7 +439,7 @@ export default function ListingDetailSheet({
 
   const title = listing.title || 'Listing Details';
   const description = listing.description || `View ${title} on Sellinmap - Sri Lanka's live map marketplace.`;
-  const rawFirstImage = listing.imageUrls?.[0] || listing.imageUrl || '';
+  const rawFirstImage = listing.image_urls?.[0] || listing.imageUrls?.[0] || listing.imageUrl || '';
   const optimizedFullImageUrl = rawFirstImage
     ? getOptimizedImageUrl(rawFirstImage, 'full')
     : 'https://sellinmap.com/pin-logo.svg';
@@ -489,7 +489,7 @@ export default function ListingDetailSheet({
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto touch-pan-y px-5 pt-1 pb-8">
           {/* Image carousel */}
-          <ImageCarousel images={listing.imageUrls} />
+          <ImageCarousel images={listing.image_urls || listing.imageUrls || (listing.imageUrl ? [listing.imageUrl] : [])} />
 
           {/* View Land Boundaries Button */}
           {Boolean(

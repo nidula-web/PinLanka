@@ -60,13 +60,17 @@ async function fallbackUpload(file) {
  */
 export async function uploadImage(file) {
   if (!file) return '';
+  if (typeof file === 'string') return file;
 
-  if (CLOUD_NAME && UPLOAD_PRESET) {
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || CLOUD_NAME || 'w5ttoxqb';
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || UPLOAD_PRESET || 'ml_defaultPinLanka';
+
+  if (cloudName && uploadPreset) {
     try {
-      const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+      const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('upload_preset', uploadPreset);
 
       const response = await fetch(url, {
         method: 'POST',

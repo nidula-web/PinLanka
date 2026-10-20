@@ -279,10 +279,19 @@ export function normalizeListing(row) {
     transmission: row.transmission || '',
     condition: row.condition || '',
     model: row.model || '',
+    image_urls: Array.isArray(row.image_urls)
+      ? row.image_urls
+      : Array.isArray(row.imageUrls)
+      ? row.imageUrls
+      : row.imageUrl
+      ? [row.imageUrl]
+      : [],
     imageUrls: Array.isArray(row.image_urls)
       ? row.image_urls
       : Array.isArray(row.imageUrls)
       ? row.imageUrls
+      : row.imageUrl
+      ? [row.imageUrl]
       : [],
     land_boundaries: Array.isArray(row.land_boundaries)
       ? row.land_boundaries

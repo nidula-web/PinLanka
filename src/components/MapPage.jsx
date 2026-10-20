@@ -372,12 +372,10 @@ export default function MapPage({
               ? true
               : new Date(listing.premium_expires_at || listing.premiumExpiresAt) > new Date());
 
-          const rawImg =
-            (Array.isArray(listing.image_urls) ? listing.image_urls[0] : null) ||
-            (Array.isArray(listing.imageUrls) ? listing.imageUrls[0] : null) ||
-            listing.imageUrl ||
-            '';
-          const pinImgUrl = rawImg ? getOptimizedImageUrl(rawImg, 'pin') : '';
+          const imgSrc = getOptimizedImageUrl(
+            listing.image_urls?.[0] || listing.imageUrls?.[0] || listing.imageUrl,
+            'pin'
+          );
 
           const handlePinSelect = () => {
             const normalized = normalizeListing ? normalizeListing(listing) : listing;
@@ -407,18 +405,16 @@ export default function MapPage({
                   onClick={handlePinSelect}
                   className="cursor-pointer w-full max-w-[210px] overflow-hidden text-left font-sans select-none rounded-2xl"
                 >
-                  {pinImgUrl ? (
-                    <img
-                      src={pinImgUrl}
-                      alt={listing.title}
-                      className="w-full aspect-[4/3] object-cover bg-gray-100"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full aspect-[4/3] object-cover bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-semibold">
-                      No Photo
-                    </div>
-                  )}
+                  <img
+                    src={imgSrc}
+                    alt={listing.title}
+                    className="w-full aspect-[4/3] object-cover bg-gray-100"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://via.placeholder.com/100x100?text=Error';
+                    }}
+                  />
                   <div className="p-3 bg-white">
                     <h4 className="text-xs font-bold text-gray-900 truncate leading-snug">
                       {listing.title}

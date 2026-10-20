@@ -573,7 +573,10 @@ export default function CreateListing({
     try {
       let imageUrls = [];
       if (imageFiles.length > 0) {
-        imageUrls = await uploadImages(imageFiles);
+        console.log(`📤 Uploading ${imageFiles.length} image(s) to Cloudinary...`);
+        const uploaded = await uploadImages(imageFiles);
+        imageUrls = (uploaded || []).filter(Boolean);
+        console.log('✅ Cloudinary secure_url results:', imageUrls);
       }
 
       const effectiveBrand = brand === 'Other' ? (customBrand || 'Other') : (brand || '');

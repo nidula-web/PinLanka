@@ -189,9 +189,10 @@ export default function MyListings({
             const isPending = !isPremium && !isExpired && premiumStatus === 'pending';
 
             const rawThumb =
+              item.image_urls?.[0] ||
               item.imageUrls?.[0] ||
               item.imageUrl ||
-              'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=400&q=80';
+              '';
             const thumb = getOptimizedImageUrl(rawThumb, 'thumbnail');
 
             return (
@@ -215,6 +216,10 @@ export default function MyListings({
                         src={thumb}
                         alt={item.title}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://via.placeholder.com/100x100?text=Error';
+                        }}
                       />
                       {isPremium && (
                         <span className="absolute top-1 left-1 bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm">
