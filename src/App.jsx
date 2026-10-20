@@ -59,28 +59,32 @@ export default function App() {
 
   const pickCallbackRef = useRef(null);
 
-  // --- Celebratory welcome toast on email confirmation / SIGNED_IN & URL cleanup ---
+  // --- Celebratory welcome toast on email confirmation ONLY & URL cleanup ---
   useEffect(() => {
-    if (window.location.hash && window.location.hash.includes('access_token')) {
-      window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
-    }
-
     if (!isSupabaseConfigured || !supabase) return;
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN') {
-        // Delay slightly so it doesn't get lost in the page load
-        setTimeout(() => {
-          toast.success("Your email is confirmed! You are logged in. Sell it quicker than ever from the map! 🚀", {
-            duration: 6000,
-            icon: '🎉',
-            style: {
-              borderRadius: '10px',
-              background: '#333',
-              color: '#fff',
-            },
-          });
-        }, 500);
+        const hash = window.location.hash;
+        const search = window.location.search;
+
+        // ONLY show the toast if they arrived from an email link
+        if (hash.includes('access_token') || search.includes('code=')) {
+          setTimeout(() => {
+            toast.success("Your email is confirmed! You are logged in. Sell it quicker than ever from the map! 🚀", {
+              duration: 6000,
+              icon: '🎉',
+              style: {
+                borderRadius: '10px',
+                background: '#333',
+                color: '#fff',
+              },
+            });
+          }, 500);
+
+          // Clean up the messy URL tokens so the user just sees a clean domain
+          window.history.replaceState(null, document.title, window.location.pathname);
+        }
       }
     });
 
