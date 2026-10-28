@@ -1,0 +1,6 @@
+{
+  "appId": "com.sellinmap.app",
+  "appName": "Sellinmap",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

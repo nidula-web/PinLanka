@@ -272,8 +272,13 @@ export default function MyListings({
                   <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100 flex-wrap sm:flex-nowrap">
                     {/* Status Badges & Upgrade Button */}
                     {isPremium ? (
-                      <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-amber-950 shadow-sm ring-1 ring-amber-400/50">
-                        <span>⭐ Golden Pin Active</span>
+                      <div className="flex flex-col items-end gap-0.5">
+                        <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-amber-950 shadow-sm ring-1 ring-amber-400/50">
+                          <span>⭐ Golden Pin Active</span>
+                        </div>
+                        <span className="text-[10px] text-amber-800 font-bold pr-1">
+                          30-day map boost
+                        </span>
                       </div>
                     ) : isPending ? (
                       <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-900 border border-yellow-300 shadow-xs cursor-default">
@@ -283,6 +288,7 @@ export default function MyListings({
                       <button
                         onClick={() => setUpgradeTarget(item)}
                         className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:via-amber-500 hover:to-yellow-500 active:scale-95 text-slate-950 shadow-sm hover:shadow transition-all cursor-pointer font-sans"
+                        title="Renew Golden Pin for 30 days"
                       >
                         <Sparkles size={14} className="text-slate-950" />
                         <span>Renew Golden Pin</span>
@@ -291,6 +297,7 @@ export default function MyListings({
                       <button
                         onClick={() => setUpgradeTarget(item)}
                         className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:via-amber-500 hover:to-yellow-500 active:scale-95 text-slate-950 shadow-sm hover:shadow transition-all cursor-pointer font-sans"
+                        title="Upgrade to Golden Pin for 30 days"
                       >
                         <Sparkles size={14} className="text-slate-950" />
                         <span>Upgrade to Premium</span>
@@ -340,14 +347,14 @@ export default function MyListings({
               {isExpired && (
                 <div className="w-full mt-1 p-3 rounded-xl bg-amber-100/90 border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in">
                   <div className="flex items-center gap-2 text-amber-950 font-bold">
-                    <span>⚠️ Your Golden Pin has expired! Renew your Golden Pin and stay on top to get the right sale.</span>
+                    <span>⚠️ Your Golden Pin has expired after 30 days! Renew your Golden Pin and stay on top to get the right sale.</span>
                   </div>
                   <button
                     onClick={() => setUpgradeTarget(item)}
                     className="shrink-0 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 active:scale-95 text-slate-950 font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Sparkles size={13} className="text-slate-950" />
-                    <span>Renew Golden Pin</span>
+                    <span>Renew for 30 Days</span>
                   </button>
                 </div>
               )}

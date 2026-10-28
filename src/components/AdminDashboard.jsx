@@ -167,7 +167,7 @@ export default function AdminDashboard({
     return map;
   }, [usersList]);
 
-  // Handle Approve Action (14-day expiry)
+  // Handle Approve Action (30-day expiry)
   const handleApprove = async (listingId, title) => {
     setActionLoadingId(listingId);
     try {
@@ -177,8 +177,9 @@ export default function AdminDashboard({
         return;
       }
 
-      // Set premium_expires_at to exactly 14 days from current date
-      const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+      // Set premium_expires_at to exactly 30 days from current date
+      const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const expiresAt = thirtyDaysFromNow;
 
       // If it is a real Supabase UUID, update in Supabase
       if (isValidUuid(listingId) && isSupabaseConfigured && supabase) {
@@ -187,7 +188,7 @@ export default function AdminDashboard({
           .update({
             is_premium: true,
             premium_status: 'approved',
-            premium_expires_at: expiresAt,
+            premium_expires_at: thirtyDaysFromNow,
           })
           .eq('id', listingId);
 
@@ -237,7 +238,7 @@ export default function AdminDashboard({
         activePremium: prev.activePremium + 1,
       }));
 
-      toast.success(`Approved Golden Pin for "${title}"! Valid for 14 days.`, {
+      toast.success(`Approved Golden Pin for "${title}"! Valid for 30 days.`, {
         icon: '⭐',
         duration: 4000,
       });
@@ -375,7 +376,7 @@ export default function AdminDashboard({
               </span>
             </h1>
             <p className="text-xs text-gray-500 mt-0.5">
-              Verify Golden Pin bank slips (14-day validity), manage platform moderation, and inspect statistics.
+              Verify Golden Pin bank slips (30-day validity), manage platform moderation, and inspect statistics.
             </p>
           </div>
         </div>

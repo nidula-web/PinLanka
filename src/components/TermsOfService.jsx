@@ -82,7 +82,7 @@ export default function TermsOfService() {
             <ul className="list-disc pl-5 text-xs sm:text-sm space-y-1.5 text-gray-600">
               <li>Payment is executed exclusively via direct bank transfer or cash deposit into designated Sellinmap company bank accounts (Commercial Bank or Bank of Ceylon).</li>
               <li>Users must upload a legible, authentic bank transfer slip or deposit receipt. Uploading forged, tampered, or fraudulent receipts will lead to immediate account termination.</li>
-              <li>Golden Pin activation occurs upon admin verification (typically within 2 to 4 hours) and remains valid for the stipulated duration (7 or 14 days).</li>
+              <li>Golden Pin activation occurs upon admin verification (typically within 2 to 4 hours) and remains valid for the stipulated duration (30 days).</li>
               <li>Approved promotional fees are non-refundable once the Golden Pin has been activated on the interactive map.</li>
             </ul>
           </section>

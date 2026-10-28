@@ -228,13 +228,17 @@ export default function PremiumUpgradeModal({
             </span>
             <div className="text-2xl sm:text-3xl font-black text-amber-950 tracking-tight flex items-baseline justify-center gap-1.5">
               <span>Rs. {price.toLocaleString()}</span>
-              <span className="text-xs sm:text-sm font-bold text-amber-800">/ 7 days</span>
+              <span className="text-xs sm:text-sm font-bold text-amber-800">/ 30 days</span>
             </div>
-            <p className="text-[11px] text-amber-800/80 mt-0.5">
-              Category:{' '}
-              <strong className="capitalize">
-                {String(listing.mainCategory || '').replace('_', ' ')}
-              </strong>
+            <p className="text-[11px] text-amber-800/80 mt-1 font-semibold flex items-center justify-center gap-1 flex-wrap">
+              <span>⭐ Active for 30 days on the map</span>
+              <span>•</span>
+              <span>
+                Category:{' '}
+                <strong className="capitalize">
+                  {String(listing.mainCategory || '').replace('_', ' ')}
+                </strong>
+              </span>
             </p>
           </div>
 
@@ -386,7 +390,7 @@ export default function PremiumUpgradeModal({
             </button>
 
             <p className="text-[11px] text-gray-400 text-center leading-normal">
-              Admin verification takes 2 to 4 hours. Your Golden Pin activates immediately upon approval.
+              Admin verification takes 2 to 4 hours. Your Golden Pin activates immediately upon approval and remains active for 30 days on the map.
             </p>
           </form>
         </div>
